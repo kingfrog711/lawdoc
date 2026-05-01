@@ -1,0 +1,32 @@
+# API keys — never commit
+backend/.env
+**/.env
+**/.env.local
+
+# Local dev notes
+*.local.md
+.dev/
+
+# Flutter
+lawdoc/.dart_tool/
+lawdoc/.flutter-plugins
+lawdoc/.flutter-plugins-dependencies
+lawdoc/build/
+lawdoc/.packages
+lawdoc/pubspec.lock
+
+# Python
+backend/__pycache__/
+backend/*.pyc
+backend/venv/
+backend/.venv/
+backend/*.egg-info/
+
+# OS
+.DS_Store
+*.DS_Store
+.idea/
+*.iml
+
+# VS Code
+.vscode/

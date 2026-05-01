@@ -1,0 +1,5 @@
+package com.lawdoc.lawdoc
+
+import io.flutter.embedding.android.FlutterActivity
+
+class MainActivity : FlutterActivity()

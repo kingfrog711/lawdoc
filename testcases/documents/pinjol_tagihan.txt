@@ -1,0 +1,62 @@
+== TAGIHAN PINJAMAN ==
+Aplikasi: DANA KILAT PRO
+No. Pinjaman: DKP-2026-0301847
+
+Kepada Yth.
+SARI DEWI LESTARI
+Telp: 0812-XXXX-XXXX
+
+RINCIAN TAGIHAN PER 1 APRIL 2026:
+
+Tanggal Pinjam   : 1 Maret 2026
+Jumlah Pinjaman  : Rp 1.500.000,-
+Tenor            : 14 hari
+Jatuh Tempo      : 15 Maret 2026
+
+PERHITUNGAN BIAYA:
+- Pokok pinjaman         : Rp   1.500.000,-
+- Biaya administrasi     : Rp     450.000,-  (30% flat)
+- Bunga harian 1%/hari   : Rp     210.000,-  (14 hari)
+- Denda keterlambatan    : Rp   1.680.000,-  (Rp 120.000/hari × 14 hari)
+- Biaya penagihan        : Rp     300.000,-
+                          ─────────────────
+TOTAL TAGIHAN            : Rp   4.140.000,-
+
+[!] PERINGATAN KERAS:
+Anda telah melewati jatuh tempo 14 hari. Tagihan Anda akan terus
+bertambah Rp 120.000 setiap harinya.
+
+Apabila tidak segera melunasi, kami AKAN:
+✗ Menghubungi seluruh kontak di HP Anda (keluarga, teman, atasan)
+✗ Mengirim foto KTP Anda ke kontak-kontak tersebut
+✗ Menyebarluaskan informasi hutang Anda di media sosial
+✗ Mendatangi tempat tinggal dan tempat kerja Anda
+
+Bayar SEKARANG ke:
+GoPay/OVO/Dana: 0822-XXXX-XXXX (a.n. PT Dana Kilat Makmur)
+
+Konfirmasi pembayaran kirim ke WA: 0822-XXXX-XXXX
+
+---
+SYARAT & KETENTUAN (tercetak kecil di bagian bawah aplikasi):
+
+§1. Peminjam memberikan akses penuh kepada DANA KILAT PRO untuk
+    membaca, menyalin, dan menyimpan seluruh data kontak, foto,
+    lokasi GPS, dan riwayat panggilan di perangkat peminjam.
+
+§2. DANA KILAT PRO berhak menggunakan data tersebut untuk keperluan
+    verifikasi dan penagihan.
+
+§3. Bunga keterlambatan 1% per hari tidak terbatas (tidak ada batas
+    maksimum bunga).
+
+§4. Peminjam menyetujui bahwa seluruh informasi yang diberikan dapat
+    dibagikan kepada afiliasi DANA KILAT PRO.
+
+§5. Dengan mengunduh aplikasi, peminjam dianggap telah membaca dan
+    menyetujui seluruh ketentuan ini.
+
+---
+PT DANA KILAT MAKMUR
+[Tidak terdaftar di OJK — beroperasi tanpa izin resmi]
+"Solusi Cepat Untuk Kebutuhan Mendesak Anda!"

@@ -1,0 +1,55 @@
+{
+  "source": "Kitab Undang-Undang Hukum Perdata (KUHPerdata)",
+  "version": "2024",
+  "pasals": [
+    {
+      "id": "832",
+      "bab": "Bab XII — Kewarisan",
+      "pasal": "Pasal 832",
+      "text": "Yang berhak menjadi ahli waris ialah keluarga sedarah, baik yang sah menurut undang-undang maupun yang di luar perkawinan, dan suami atau istri yang hidup terlama, menurut peraturan-peraturan berikut ini.",
+      "keywords": ["waris", "ahli waris", "keluarga sedarah", "warisan"]
+    },
+    {
+      "id": "833",
+      "bab": "Bab XII — Kewarisan",
+      "pasal": "Pasal 833",
+      "text": "Para ahli waris dengan sendirinya karena hukum mendapat hak milik atas semua barang, semua hak, dan semua piutang orang yang meninggal.",
+      "keywords": ["ahli waris", "hak milik", "warisan", "meninggal"]
+    },
+    {
+      "id": "207",
+      "bab": "Bab X — Perceraian",
+      "pasal": "Pasal 207",
+      "text": "Perceraian perkawinan sekali-kali tidak dapat terjadi hanya atas persetujuan bersama. Perceraian harus atas alasan-alasan yang ditentukan undang-undang.",
+      "keywords": ["cerai", "perceraian", "perkawinan"]
+    },
+    {
+      "id": "209",
+      "bab": "Bab X — Perceraian",
+      "pasal": "Pasal 209",
+      "text": "Alasan-alasan yang dapat mengakibatkan perceraian ialah: (1) Zina; (2) Meninggalkan tempat tinggal bersama dengan itikad buruk; (3) Penghukuman penjara lima tahun lamanya atau hukuman yang lebih berat; (4) Melukai berat atau menganiaya.",
+      "keywords": ["cerai", "perceraian", "alasan cerai", "zina", "penelantaran"]
+    },
+    {
+      "id": "1233",
+      "bab": "Bab I — Perikatan Umumnya",
+      "pasal": "Pasal 1233",
+      "text": "Tiap-tiap perikatan dilahirkan baik karena persetujuan, baik karena undang-undang.",
+      "keywords": ["perikatan", "perjanjian", "kontrak"]
+    },
+    {
+      "id": "1313",
+      "bab": "Bab II — Perikatan yang Lahir dari Kontrak",
+      "pasal": "Pasal 1313",
+      "text": "Suatu persetujuan adalah suatu perbuatan dengan mana satu orang atau lebih mengikatkan dirinya terhadap satu orang lain atau lebih.",
+      "keywords": ["perjanjian", "kontrak", "persetujuan", "hutang piutang"]
+    },
+    {
+      "id": "1365",
+      "bab": "Bab III — Perikatan yang Lahir karena Undang-Undang",
+      "pasal": "Pasal 1365",
+      "text": "Tiap perbuatan melanggar hukum, yang membawa kerugian kepada orang lain, mewajibkan orang yang karena salahnya menerbitkan kerugian itu, mengganti kerugian tersebut.",
+      "keywords": ["perbuatan melawan hukum", "ganti rugi", "kerugian"]
+    }
+  ]
+}
