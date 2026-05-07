@@ -1,5 +1,5 @@
 #!/bin/bash
-# First-time setup: creates .env from .env.example if it doesn't exist
+# First-time setup: creates .env with API keys
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -13,20 +13,32 @@ fi
 
 echo "── LawDoc backend setup ──"
 echo ""
-echo "You need a Google AI Studio API key."
-echo "Get one free at: https://aistudio.google.com/app/apikey"
-echo ""
-read -r -p "Paste your GOOGLE_API_KEY: " key
 
-if [ -z "$key" ]; then
-  echo "Error: no key entered. Run setup.sh again when you have the key."
-  exit 1
+# Google AI Studio key (for /tanya and /ocr-explain)
+echo "1) Google AI Studio API key  (for legacy /tanya endpoint)"
+echo "   Get one free at: https://aistudio.google.com/app/apikey"
+echo "   Leave blank to skip if you only need /consult"
+echo ""
+read -r -p "   Paste GOOGLE_API_KEY (or Enter to skip): " google_key
+echo ""
+
+# HuggingFace token (for /consult — the main chatbot)
+echo "2) HuggingFace token  (for /consult — the main AI chatbot)"
+echo "   Get one at: https://huggingface.co/settings/tokens"
+echo "   Model used: sirpratama/perdata-gemma4-lora"
+echo ""
+read -r -p "   Paste HF_API_KEY: " hf_key
+echo ""
+
+if [ -z "$hf_key" ]; then
+  echo "⚠ No HF_API_KEY entered. The /consult endpoint will not work."
+  echo "  Add it manually to .env later: HF_API_KEY=your_token"
+  echo ""
 fi
 
 cp "$EXAMPLE_FILE" "$ENV_FILE"
-# Replace the placeholder line
-sed -i.bak "s|GOOGLE_API_KEY=.*|GOOGLE_API_KEY=$key|" "$ENV_FILE"
+sed -i.bak "s|GOOGLE_API_KEY=.*|GOOGLE_API_KEY=$google_key|" "$ENV_FILE"
+sed -i.bak "s|HF_API_KEY=.*|HF_API_KEY=$hf_key|" "$ENV_FILE"
 rm -f "$ENV_FILE.bak"
 
-echo ""
 echo "✓ .env created. Run: bash start.sh"

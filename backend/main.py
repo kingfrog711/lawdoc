@@ -1,21 +1,31 @@
 """
-LawDoc FastAPI backend — calls Gemma 4 via Google AI Studio.
-Run: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+LawDoc FastAPI backend v2.0
+/consult  — stateful legal consultant (Gemma 4 via Google AI Studio)
+/tanya    — preserved legacy endpoint (Gemma via Google AI Studio)
+/ocr-explain — preserved multimodal endpoint (Google AI Studio)
 """
 
+import asyncio
 import os
 import json
 import re
+from typing import Optional
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from dotenv import load_dotenv
 import google.generativeai as genai
 
+load_dotenv()
+
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "")
-genai.configure(api_key=GOOGLE_API_KEY)
+CONSULT_MODEL = "gemma-4-31b-it"
 
-app = FastAPI(title="LawDoc API", version="1.0.0")
+if GOOGLE_API_KEY:
+    genai.configure(api_key=GOOGLE_API_KEY)
 
+app = FastAPI(title="LawDoc API", version="2.0.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -23,7 +33,392 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-SYSTEM_PROMPT = """Anda adalah asisten hukum perdata Indonesia dari LawDoc — membantu warga biasa yang tidak mampu membayar pengacara.
+# ── Pydantic models ────────────────────────────────────────────────────────────
+
+class SessionContext(BaseModel):
+    agama: Optional[str] = None
+    domicile: Optional[str] = None
+    budget: Optional[str] = None
+    case_type: Optional[str] = None
+    confirmed: bool = False
+    flow_state: str = "extracting"
+
+
+class HistoryMessage(BaseModel):
+    role: str  # "user" | "model"
+    content: str
+
+
+class ConsultRequest(BaseModel):
+    session_id: str
+    message: str
+    document_text: Optional[str] = None
+    context: SessionContext
+    history: list[HistoryMessage] = []
+
+
+class LegalBasisOut(BaseModel):
+    pasal: str
+    text: str
+    application: Optional[str] = None
+
+
+class StructuredOutput(BaseModel):
+    legal_basis: Optional[LegalBasisOut] = None
+    docs_needed: Optional[list[str]] = None
+    steps: Optional[list[str]] = None
+    outcome: Optional[str] = None
+    refer_to_lawyer: bool = False
+
+
+class ContextUpdate(BaseModel):
+    agama: Optional[str] = None
+    domicile: Optional[str] = None
+    budget: Optional[str] = None
+    case_type: Optional[str] = None
+    confirmed: bool = False
+    flow_state: str = "extracting"
+
+
+class ConsultResponse(BaseModel):
+    message: str
+    flow_state: str
+    context_update: ContextUpdate
+    structured: Optional[StructuredOutput] = None
+    disclaimer: str = (
+        "Jawaban ini bersifat informasi umum, bukan nasihat hukum resmi. "
+        "Hubungi pengacara atau LBH terdekat untuk pendampingan kasus Anda."
+    )
+
+
+# Legacy models (preserved for /tanya and /ocr-explain)
+class TanyaRequest(BaseModel):
+    message: str
+    document_text: Optional[str] = None
+
+
+class LegalBasis(BaseModel):
+    pasal: str
+    text: str
+    application: Optional[str] = None
+
+
+class LegalResponse(BaseModel):
+    summary: str
+    legal_basis: LegalBasis
+    steps: list[str]
+    disclaimer: str
+
+
+# ── Google AI Studio helpers ───────────────────────────────────────────────────
+
+async def _call_gemini(system: str, history: list[HistoryMessage], message: str) -> str:
+    if not GOOGLE_API_KEY:
+        raise HTTPException(status_code=500, detail="GOOGLE_API_KEY not set")
+
+    def _sync_call() -> str:
+        model = genai.GenerativeModel(
+            model_name=CONSULT_MODEL,
+            system_instruction=system,
+            generation_config=genai.GenerationConfig(temperature=0.4, max_output_tokens=2048),
+        )
+        chat_history = [
+            {"role": msg.role, "parts": [msg.content]}
+            for msg in history
+        ]
+        chat = model.start_chat(history=chat_history)
+        response = chat.send_message(message)
+        return response.text
+
+    return await asyncio.to_thread(_sync_call)
+
+
+def _extract_json(text: str) -> dict:
+    text = re.sub(r"```(?:json)?", "", text).replace("```", "").strip()
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+    candidates, depth, start = [], 0, None
+    for i, ch in enumerate(text):
+        if ch == "{":
+            if depth == 0:
+                start = i
+            depth += 1
+        elif ch == "}" and depth > 0:
+            depth -= 1
+            if depth == 0 and start is not None:
+                candidates.append(text[start: i + 1])
+    for chunk in reversed(candidates):
+        try:
+            return json.loads(chunk)
+        except json.JSONDecodeError:
+            continue
+    raise ValueError("No valid JSON found in model output")
+
+
+# ── Prompts ────────────────────────────────────────────────────────────────────
+
+def _extraction_system(ctx: SessionContext) -> str:
+    known_lines = []
+    if ctx.agama:
+        known_lines.append(f"- Agama: {ctx.agama}")
+    if ctx.domicile:
+        known_lines.append(f"- Domisili: {ctx.domicile}")
+    if ctx.budget:
+        known_lines.append(f"- Budget: {ctx.budget}")
+    known = "\n".join(known_lines) if known_lines else "- Belum ada yang diketahui"
+
+    missing = []
+    if not ctx.agama:
+        missing.append("agama (Islam/Kristen/Hindu/Buddha/Konghucu)")
+    if not ctx.domicile:
+        missing.append("domisili (kota atau provinsi)")
+    if not ctx.budget:
+        missing.append("kemampuan biaya (pro_bono, <500rb, 500rb-2jt, >2jt)")
+    missing_str = ", ".join(missing) if missing else "–"
+
+    return f"""Anda adalah LawDoc, konsultan hukum perdata Indonesia yang membantu warga biasa memahami hak hukum mereka.
+
+KONTEKS YANG SUDAH DIKETAHUI:
+{known}
+
+INFORMASI YANG MASIH PERLU DIGALI: {missing_str}
+
+INSTRUKSI:
+1. Respons dengan empati dalam Bahasa Indonesia sehari-hari
+2. Tunjukkan bahwa Anda memahami masalah pengguna
+3. Jika ada informasi yang belum diketahui dan relevan untuk saran yang tepat, tanyakan SATU pertanyaan secara natural — jangan tanyakan semua sekaligus
+4. Ekstrak dari pesan terbaru pengguna (null jika tidak disebutkan):
+   - agama: Islam | Kristen | Hindu | Buddha | Konghucu | null
+   - domicile: nama kota atau provinsi Indonesia | null
+   - budget: "pro_bono" | "<500rb" | "500rb-2jt" | ">2jt" | null
+
+WAJIB kembalikan HANYA JSON valid, tidak ada teks di luar JSON:
+{{
+  "message": "respons natural Anda",
+  "extracted": {{
+    "agama": null,
+    "domicile": null,
+    "budget": null
+  }}
+}}"""
+
+
+def _consulting_system(ctx: SessionContext) -> str:
+    budget_label = {
+        "pro_bono": "mencari bantuan pro bono / LBH",
+        "<500rb": "budget di bawah Rp500rb",
+        "500rb-2jt": "budget Rp500rb–Rp2jt",
+        ">2jt": "budget di atas Rp2jt",
+    }.get(ctx.budget or "", ctx.budget or "tidak ditentukan")
+
+    if ctx.domicile and "aceh" in (ctx.domicile or "").lower():
+        jurisdiction = "Mahkamah Syar'iyah Aceh — Qanun dan KHI berlaku"
+    elif ctx.agama == "Islam":
+        jurisdiction = "Pengadilan Agama — KHI berlaku untuk pernikahan dan waris; KUHPerdata untuk perdata umum"
+    else:
+        jurisdiction = "Pengadilan Negeri — KUHPerdata berlaku"
+
+    return f"""Anda adalah LawDoc, konsultan hukum perdata Indonesia spesialis KUHPerdata dan hukum keluarga.
+
+PROFIL PENGGUNA:
+- Agama: {ctx.agama}
+- Domisili: {ctx.domicile}
+- {budget_label}
+- Yurisdiksi: {jurisdiction}
+
+INSTRUKSI:
+1. Klasifikasikan kasus ke: perceraian | warisan | tanah | utang | unclear
+2. Berikan konsultasi mendalam dengan nuansa yang tepat:
+   PERCERAIAN: wajib mediasi dulu (PERMA 1/2016, maks 30 hari), cek beda agama (UU 1/1974)
+   WARISAN: pertimbangkan sistem adat (Minangkabau=matrilineal via KAN, Batak=patrilineal via Dalihan na Tolu, Bali=purusa, Jawa=bilateral sepikul segendong), KHI faraidh untuk Muslim, KUHPerdata 4 golongan untuk non-Muslim
+   TANAH: SHM = bukti terkuat (UUPA 5/1960), ajukan ke BPN dulu sebelum litigasi
+   UTANG: wanprestasi → somasi dulu (Pasal 1243), PMH → langsung PN (Pasal 1365); gugatan sederhana jika <Rp500jt
+3. Kutip pasal yang PALING RELEVAN dengan bunyi aslinya
+4. Daftar dokumen yang dibutuhkan sesuai profil pengguna
+5. Langkah konkret yang bisa langsung dilakukan — bukan saran generik
+6. Perkiraan hasil dan timeline yang realistis
+7. Jika kasus di luar 4 kategori atau sangat kompleks, set refer_to_lawyer ke true
+
+WAJIB kembalikan HANYA JSON valid:
+{{
+  "message": "respons konsultasi natural dan empatis",
+  "case_type": "perceraian|warisan|tanah|utang|unclear",
+  "legal_basis": {{
+    "pasal": "KUHPerdata Pasal XXX",
+    "text": "Bunyi lengkap pasal yang dikutip",
+    "application": "Penerapan konkret pada kasus pengguna — gunakan detail spesifik mereka"
+  }},
+  "docs_needed": ["dokumen 1", "dokumen 2"],
+  "steps": ["Langkah 1 konkret", "Langkah 2"],
+  "outcome": "Perkiraan hasil dan timeline realistis",
+  "refer_to_lawyer": false
+}}
+
+Jika masih perlu info lebih atau kasus unclear: set legal_basis/docs_needed/steps/outcome ke null, refer_to_lawyer ke false, dan tanyakan di message."""
+
+
+# ── State machine ──────────────────────────────────────────────────────────────
+
+_DISCLAIMER = (
+    "Jawaban ini bersifat informasi umum, bukan nasihat hukum resmi. "
+    "Hubungi pengacara atau LBH terdekat untuk pendampingan kasus Anda."
+)
+_CONFIRM_WORDS = {"ya", "iya", "benar", "betul", "correct", "bener", "yap", "yep", "ok", "oke", "setuju", "tepat"}
+
+
+def _budget_label(budget: str) -> str:
+    return {
+        "pro_bono": "mencari bantuan pro bono",
+        "<500rb": "budget di bawah Rp500rb",
+        "500rb-2jt": "budget Rp500rb–Rp2jt",
+        ">2jt": "budget di atas Rp2jt",
+    }.get(budget, budget)
+
+
+async def _handle_extracting(req: ConsultRequest) -> ConsultResponse:
+    user_msg = req.message
+    if req.document_text:
+        user_msg += f"\n\n[DOKUMEN TERLAMPIR]\n{req.document_text}"
+
+    raw = await _call_gemini(_extraction_system(req.context), req.history, user_msg)
+    data = _extract_json(raw)
+
+    extracted = data.get("extracted", {})
+    message = data.get("message", raw)
+
+    new_agama = extracted.get("agama") or req.context.agama
+    new_domicile = extracted.get("domicile") or req.context.domicile
+    new_budget = extracted.get("budget") or req.context.budget
+
+    # All 3 known → generate confirmation message, no extra model call
+    if new_agama and new_domicile and new_budget:
+        confirm_msg = (
+            f"Saya deteksi Anda beragama {new_agama}, berdomisili di {new_domicile}, "
+            f"dan {_budget_label(new_budget)} — apakah informasi ini benar?"
+        )
+        return ConsultResponse(
+            message=confirm_msg,
+            flow_state="confirming",
+            context_update=ContextUpdate(
+                agama=new_agama,
+                domicile=new_domicile,
+                budget=new_budget,
+                flow_state="confirming",
+                confirmed=False,
+            ),
+            disclaimer=_DISCLAIMER,
+        )
+
+    return ConsultResponse(
+        message=message,
+        flow_state="extracting",
+        context_update=ContextUpdate(
+            agama=new_agama,
+            domicile=new_domicile,
+            budget=new_budget,
+            flow_state="extracting",
+            confirmed=False,
+        ),
+        disclaimer=_DISCLAIMER,
+    )
+
+
+async def _handle_confirming(req: ConsultRequest) -> ConsultResponse:
+    tokens = set(req.message.lower().split())
+    is_confirmed = bool(tokens & _CONFIRM_WORDS)
+
+    if is_confirmed:
+        # Jump straight into consultation using the full history the user already provided
+        consulting_ctx = SessionContext(
+            agama=req.context.agama,
+            domicile=req.context.domicile,
+            budget=req.context.budget,
+            confirmed=True,
+            flow_state="consulting",
+        )
+        synthetic_req = ConsultRequest(
+            session_id=req.session_id,
+            message="Berdasarkan percakapan kita, tolong berikan analisis hukum untuk masalah saya.",
+            document_text=req.document_text,
+            context=consulting_ctx,
+            history=req.history + [HistoryMessage(role="user", content=req.message)],
+        )
+        return await _handle_consulting(synthetic_req)
+
+    # User is correcting — re-run extraction on the correction message
+    return await _handle_extracting(req)
+
+
+async def _handle_consulting(req: ConsultRequest) -> ConsultResponse:
+    user_msg = req.message
+    if req.document_text:
+        user_msg += f"\n\n[DOKUMEN TERLAMPIR]\n{req.document_text}"
+
+    raw = await _call_gemini(_consulting_system(req.context), req.history, user_msg)
+    data = _extract_json(raw)
+
+    case_type = data.get("case_type") or req.context.case_type
+    lb_data = data.get("legal_basis")
+
+    structured = None
+    if lb_data or data.get("docs_needed") or data.get("steps"):
+        structured = StructuredOutput(
+            legal_basis=LegalBasisOut(**lb_data) if lb_data else None,
+            docs_needed=data.get("docs_needed") or None,
+            steps=data.get("steps") or None,
+            outcome=data.get("outcome"),
+            refer_to_lawyer=data.get("refer_to_lawyer", False),
+        )
+
+    next_state = "referring" if data.get("refer_to_lawyer") else "consulting"
+
+    return ConsultResponse(
+        message=data.get("message", raw),
+        flow_state=next_state,
+        context_update=ContextUpdate(
+            agama=req.context.agama,
+            domicile=req.context.domicile,
+            budget=req.context.budget,
+            case_type=case_type,
+            confirmed=True,
+            flow_state=next_state,
+        ),
+        structured=structured,
+        disclaimer=_DISCLAIMER,
+    )
+
+
+# ── Endpoints ──────────────────────────────────────────────────────────────────
+
+@app.get("/health")
+def health():
+    return {"status": "ok", "model": CONSULT_MODEL, "version": "2.0.0"}
+
+
+@app.post("/consult", response_model=ConsultResponse)
+async def consult(req: ConsultRequest):
+    try:
+        state = req.context.flow_state
+        if state == "extracting":
+            return await _handle_extracting(req)
+        elif state == "confirming":
+            return await _handle_confirming(req)
+        elif state in ("consulting", "referring"):
+            return await _handle_consulting(req)
+        else:
+            return await _handle_extracting(req)
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[consult] Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Legacy endpoints (preserved, untouched) ────────────────────────────────────
+
+LEGACY_SYSTEM_PROMPT = """Anda adalah asisten hukum perdata Indonesia dari LawDoc — membantu warga biasa yang tidak mampu membayar pengacara.
 
 CARA KERJA:
 1. Baca situasi pengguna dengan cermat — catat fakta spesifik: siapa saja pihaknya, berapa nilainya, berapa lama, apa yang sudah terjadi.
@@ -52,47 +447,16 @@ WAJIB: Kembalikan HANYA JSON valid persis format berikut, tanpa teks atau markdo
   "disclaimer": "Jawaban ini bersifat informasi umum, bukan nasihat hukum resmi. Hubungi pengacara atau LBH terdekat untuk pendampingan kasus Anda."
 }"""
 
-
-class TanyaRequest(BaseModel):
-    message: str
-    document_text: str | None = None
+LEGACY_MODEL_NAME = "gemma-4-31b-it"
 
 
-class LegalBasis(BaseModel):
-    pasal: str
-    text: str
-    application: str | None = None
-
-
-class LegalResponse(BaseModel):
-    summary: str
-    legal_basis: LegalBasis
-    steps: list[str]
-    disclaimer: str
-
-
-MODEL_NAME = "gemma-4-31b-it"  # gemma-4-26b-a4b-it for faster MoE variant
-
-
-def _extract_json(text: str) -> dict:
-    """
-    Gemma 4 is a reasoning model — it may emit chain-of-thought text before
-    the final JSON answer. This finds the last well-formed JSON object in the
-    output that contains the required 'summary' and 'legal_basis' keys.
-    """
-    # Strip markdown code fences anywhere in the text
+def _extract_json_legacy(text: str) -> dict:
     text = re.sub(r"```(?:json)?", "", text).replace("```", "").strip()
-
-    # Fast path: the whole text is valid JSON
     try:
         return json.loads(text)
     except json.JSONDecodeError:
         pass
-
-    # Find all top-level JSON object candidates (handles nested braces)
-    candidates = []
-    depth = 0
-    start = None
+    candidates, depth, start = [], 0, None
     for i, ch in enumerate(text):
         if ch == "{":
             if depth == 0:
@@ -101,9 +465,7 @@ def _extract_json(text: str) -> dict:
         elif ch == "}" and depth > 0:
             depth -= 1
             if depth == 0 and start is not None:
-                candidates.append(text[start : i + 1])
-
-    # Try from last candidate backward — the final JSON block is the answer
+                candidates.append(text[start: i + 1])
     for chunk in reversed(candidates):
         try:
             data = json.loads(chunk)
@@ -111,41 +473,26 @@ def _extract_json(text: str) -> dict:
                 return data
         except json.JSONDecodeError:
             continue
-
     raise ValueError("No valid LegalResponse JSON found in model output")
-
-
-@app.get("/health")
-def health():
-    return {"status": "ok", "model": MODEL_NAME}
 
 
 @app.post("/tanya", response_model=LegalResponse)
 async def tanya(req: TanyaRequest):
     if not GOOGLE_API_KEY:
         raise HTTPException(status_code=500, detail="GOOGLE_API_KEY not set")
-
     model = genai.GenerativeModel(
-        model_name=MODEL_NAME,
-        system_instruction=SYSTEM_PROMPT,
-        generation_config=genai.GenerationConfig(
-            temperature=0.4,
-            max_output_tokens=2048,
-        ),
+        model_name=LEGACY_MODEL_NAME,
+        system_instruction=LEGACY_SYSTEM_PROMPT,
+        generation_config=genai.GenerationConfig(temperature=0.4, max_output_tokens=2048),
     )
-
     try:
         prompt = req.message
         if req.document_text:
             prompt = f"{req.message}\n\n[DOKUMEN TERLAMPIR]\n{req.document_text}"
         response = model.generate_content(prompt)
-        raw = response.text.strip()
-
-        data = _extract_json(raw)
+        data = _extract_json_legacy(response.text.strip())
         return LegalResponse(**data)
-
     except (json.JSONDecodeError, ValueError, KeyError) as e:
-        print(f"[tanya] JSON extraction failed: {e}")
         raise HTTPException(status_code=500, detail=f"Model returned unparseable output: {e}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -153,17 +500,10 @@ async def tanya(req: TanyaRequest):
 
 @app.post("/ocr-explain")
 async def ocr_explain(doc_base64: str, filename: str = "document"):
-    """
-    Multimodal endpoint: send base64 image of a legal document,
-    Gemma 4 vision extracts and explains key clauses.
-    """
     if not GOOGLE_API_KEY:
         raise HTTPException(status_code=500, detail="GOOGLE_API_KEY not set")
-
     import base64
-
-    model = genai.GenerativeModel(MODEL_NAME)
-
+    model = genai.GenerativeModel(LEGACY_MODEL_NAME)
     prompt = """Anda melihat sebuah dokumen hukum Indonesia.
     Tolong:
     1. Identifikasi jenis dokumen ini
@@ -172,13 +512,9 @@ async def ocr_explain(doc_base64: str, filename: str = "document"):
     4. Tandai klausul yang perlu perhatian khusus
 
     Format respons dalam Bahasa Indonesia yang mudah dipahami."""
-
     try:
         image_data = base64.b64decode(doc_base64)
-        response = model.generate_content([
-            prompt,
-            {"mime_type": "image/jpeg", "data": image_data},
-        ])
+        response = model.generate_content([prompt, {"mime_type": "image/jpeg", "data": image_data}])
         return {"explanation": response.text}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

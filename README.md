@@ -292,3 +292,135 @@ This section describes what is **incomplete, stubbed, or known-rough** so contri
 Gemma 4 (`gemma-4-31b-it`) is a reasoning model — it emits chain-of-thought text before the final answer. The `_extract_json()` function in `backend/main.py` handles this by walking all brace-matched blocks from the end of the response and returning the last valid JSON that contains `summary` and `legal_basis`. If the model output changes shape, this is the first place to debug.
 
 The system prompt is in `backend/main.py` as `SYSTEM_PROMPT`. It explicitly instructs Gemma to apply the pasal to the user's specific facts using their stated details (number of heirs, names, amounts, etc.). Changes to this prompt have the highest leverage on response quality.
+
+---
+
+## Current Architecture (as of May 2026)
+
+This section reflects the actual built state. Use it as ground truth when picking up the project.
+
+### `/consult` endpoint — the main chatbot
+
+The chatbot now uses a **stateless backend state machine**. Flutter owns the full session and sends it with every request; the backend applies logic and returns the next state.
+
+```
+Flutter app
+  └─ SessionService (path_provider JSON at lawdoc_session.json — survives restarts)
+  └─ AiService.consult(message, session, documentText?)
+       └─ POST http://localhost:8000/consult
+            └─ FastAPI state machine (routes by flow_state)
+                 └─ gemma-4-31b-it via Google AI Studio (asyncio.to_thread)
+                      └─ Returns structured JSON + next_state + context_update
+```
+
+**Fallback:** if backend is offline or returns an error → shows `"Model sedang tidak tersedia, coba lagi nanti."` as a system message in chat. No mock responses for `/consult`.
+
+**Legacy:** `/tanya` and `/ocr-explain` are preserved and untouched. They still use `gemma-4-31b-it` via Google AI Studio.
+
+### Consultant flow (5 states)
+
+| State | What happens |
+|---|---|
+| `extracting` | AI reads user message passively, extracts agama / domicile / budget, asks natural follow-ups if missing |
+| `confirming` | Once all 3 are known, AI says "Saya deteksi Anda beragama X, domisili Y, budget Z — apakah benar?" — no model call, backend generates the string directly |
+| `consulting` | User confirms → backend immediately calls model with full history for deep legal analysis |
+| `referring` | Model sets `refer_to_lawyer: true` → shows referral banner |
+| (correction) | User says something other than "ya/iya/benar" during confirming → re-runs extraction on the correction |
+
+Context (agama / domicile / budget / case_type / flow_state) is sent in the request body by Flutter and persisted client-side in `lawdoc_session.json`.
+
+### Session schema (client-side JSON)
+
+```json
+{
+  "session_id": "uuid",
+  "agama": "Islam|Kristen|Hindu|Buddha|Konghucu|null",
+  "domicile": "province string | null",
+  "budget": "pro_bono|<500rb|500rb-2jt|>2jt|null",
+  "case_type": "perceraian|warisan|tanah|utang|unclear|null",
+  "flow_state": "extracting|confirming|consulting|referring",
+  "confirmed": false,
+  "messages": [],
+  "created_at": "ISO8601",
+  "updated_at": "ISO8601"
+}
+```
+
+### `/consult` request / response schema
+
+**Request:**
+```json
+{
+  "session_id": "uuid",
+  "message": "user's message",
+  "context": { "flow_state": "extracting", "agama": null, "domicile": null, "budget": null, "confirmed": false },
+  "history": [{ "role": "user|model", "content": "..." }],
+  "document_text": "optional — text extracted from attached file"
+}
+```
+
+**Response:**
+```json
+{
+  "message": "natural language response",
+  "flow_state": "next state",
+  "context_update": {
+    "agama": "extracted or null",
+    "domicile": "extracted or null",
+    "budget": "extracted or null",
+    "case_type": "classified or null",
+    "confirmed": true
+  },
+  "structured": {
+    "legal_basis": { "pasal": "KUHPerdata Pasal XXX", "text": "...", "application": "..." },
+    "docs_needed": ["doc1", "doc2"],
+    "steps": ["step1", "step2"],
+    "outcome": "realistic outcome + timeline",
+    "refer_to_lawyer": false
+  },
+  "disclaimer": "..."
+}
+```
+
+`structured` is null during extracting/confirming. Only populated once consulting begins.
+
+### Jurisdiction routing (inside backend prompts)
+
+- Domicile contains "aceh" → Mahkamah Syar'iyah (Qanun + KHI)
+- Agama = Islam → Pengadilan Agama for marriage/inheritance; KUHPerdata for general civil
+- Otherwise → Pengadilan Negeri, KUHPerdata
+
+Adat nuance injected for inheritance: Minangkabau = matrilineal (KAN), Batak = patrilineal (Dalihan na Tolu), Bali = purusa, Jawa = bilateral.
+
+### New files added (not in the original structure above)
+
+| File | Purpose |
+|---|---|
+| `lawdoc/lib/models/consult_session.dart` | `SessionContextModel`, `ConsultResponse`, `ConsultSession` — session + context state models |
+| `lawdoc/lib/services/session_service.dart` | `SessionService.load()` / `.save()` / `.clear()` — JSON file persistence via path_provider |
+| `legal_consultant_ai_flow_v2.mmd` | Mermaid flow diagram — the consultant decision tree the backend implements |
+
+### Updated files (since initial commit)
+
+| File | What changed |
+|---|---|
+| `backend/main.py` | Added `/consult` state machine; `_call_gemini()` replaces `_call_hf()`; legacy endpoints untouched |
+| `backend/setup.sh` | Prompts for both `GOOGLE_API_KEY` and `HF_API_KEY` on first run |
+| `backend/start.sh` | Checks for missing `HF_API_KEY` after sourcing `.env`, prompts and saves if empty |
+| `backend/.env.example` | Added `HF_API_KEY` placeholder |
+| `lawdoc/pubspec.yaml` | Added `path_provider: ^2.1.4` |
+| `lawdoc/lib/models/legal_response.dart` | Added `ConsultStructured`; updated `ChatMessage` with `consultStructured`, `isSystemMessage`, `toJson()`/`fromJson()` |
+| `lawdoc/lib/services/ai_service.dart` | Added `ConsultResult` + `consult()` method; legacy `query()` preserved |
+| `lawdoc/lib/screens/chat/tanya_dulu_screen.dart` | Full rewrite — context bar, case badge, structured output cards, session load/save, system message rendering |
+
+### Fine-tuned model note
+
+`sirpratama/perdata-gemma4-lora` (LoRA fine-tune of Gemma 4 4B on KUHPerdata, trained via Unsloth) exists on HuggingFace but has no `pipeline_tag` and no inference providers configured — it cannot be served via HF Serverless Inference API. It is showcased in the Kaggle notebook as a training artifact. The live app uses `gemma-4-31b-it` via Google AI Studio.
+
+### API key setup
+
+Only `GOOGLE_API_KEY` is required to run the app. `HF_API_KEY` is prompted by `start.sh` for completeness (notebook use) but the server starts fine without it.
+
+```bash
+cd backend && bash start.sh   # prompts for keys on first run, saves to .env
+```

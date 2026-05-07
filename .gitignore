@@ -30,3 +30,4 @@ backend/*.egg-info/
 
 # VS Code
 .vscode/
+refs/

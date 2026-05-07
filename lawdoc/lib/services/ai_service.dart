@@ -1,11 +1,12 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/legal_response.dart';
+import '../models/consult_session.dart';
 import '../data/mock_ai_responses.dart';
 
-enum AiMode { mock, gemini }
+enum ResponseSource { backend, offline }
 
-enum ResponseSource { gemini, mock }
+// ── Legacy result type (kept for /tanya compatibility) ────────────────────────
 
 class AiResult {
   final LegalResponse response;
@@ -14,10 +15,20 @@ class AiResult {
   const AiResult({required this.response, required this.source, this.error});
 }
 
-class AiService {
-  static AiMode mode = AiMode.gemini;
+// ── New consult result type ───────────────────────────────────────────────────
 
+class ConsultResult {
+  final ConsultResponse? response;
+  final bool success;
+  final String? error;
+  const ConsultResult({this.response, required this.success, this.error});
+}
+
+// ── Service ───────────────────────────────────────────────────────────────────
+
+class AiService {
   static const String _base = 'http://localhost:8000';
+  static const String _consultUrl = '$_base/consult';
   static const String _tanyaUrl = '$_base/tanya';
   static const String _healthUrl = '$_base/health';
 
@@ -32,16 +43,55 @@ class AiService {
     }
   }
 
-  static Future<AiResult> query(String userMessage, {String? documentText}) async {
-    if (mode == AiMode.mock) {
-      await Future.delayed(const Duration(milliseconds: 1200));
-      final r = getMockResponse(userMessage) ?? defaultMockResponse;
-      return AiResult(response: r, source: ResponseSource.mock);
+  // Primary method — calls /consult with full session context
+  static Future<ConsultResult> consult(
+    String message,
+    ConsultSession session, {
+    String? documentText,
+  }) async {
+    try {
+      final history = session.messages
+          .where((m) => !m.isSystemMessage)
+          .map((m) => {'role': m.isUser ? 'user' : 'model', 'content': m.text})
+          .toList();
+
+      final body = <String, dynamic>{
+        'session_id': session.sessionId,
+        'message': message,
+        'context': session.context.toJson(),
+        'history': history,
+        if (documentText != null) 'document_text': documentText,
+      };
+
+      final res = await http
+          .post(
+            Uri.parse(_consultUrl),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 120));
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        return ConsultResult(
+          response: ConsultResponse.fromJson(data),
+          success: true,
+        );
+      }
+
+      final detail = jsonDecode(res.body)['detail'] as String? ?? res.body;
+      return ConsultResult(success: false, error: detail);
+    } catch (e) {
+      return ConsultResult(success: false, error: e.toString());
     }
-    return _queryBackend(userMessage, documentText: documentText);
   }
 
-  static Future<AiResult> _queryBackend(String message, {String? documentText}) async {
+  // Legacy method — calls /tanya (preserved)
+  static Future<AiResult> query(String userMessage, {String? documentText}) async {
+    return _queryLegacy(userMessage, documentText: documentText);
+  }
+
+  static Future<AiResult> _queryLegacy(String message, {String? documentText}) async {
     try {
       final body = <String, dynamic>{'message': message};
       if (documentText != null) body['document_text'] = documentText;
@@ -56,24 +106,16 @@ class AiService {
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body) as Map<String, dynamic>;
-        return AiResult(
-          response: LegalResponse.fromJson(data),
-          source: ResponseSource.gemini,
-        );
+        return AiResult(response: LegalResponse.fromJson(data), source: ResponseSource.backend);
       }
 
-      // Backend returned an error status
-      final errorDetail = 'Backend error ${res.statusCode}: ${res.body}';
       // ignore: avoid_print
-      print('[AiService] $errorDetail');
+      print('[AiService] Legacy backend error ${res.statusCode}');
       final fallback = getMockResponse(message) ?? defaultMockResponse;
-      return AiResult(response: fallback, source: ResponseSource.mock, error: errorDetail);
+      return AiResult(response: fallback, source: ResponseSource.offline, error: res.body);
     } catch (e) {
-      final errorDetail = 'Network error: $e';
-      // ignore: avoid_print
-      print('[AiService] $errorDetail');
       final fallback = getMockResponse(message) ?? defaultMockResponse;
-      return AiResult(response: fallback, source: ResponseSource.mock, error: errorDetail);
+      return AiResult(response: fallback, source: ResponseSource.offline, error: e.toString());
     }
   }
 }

@@ -1,0 +1,79 @@
+flowchart TD
+    START(["User opens chatbot"]) --> OB["Onboarding\nCapture: agama + domicile + budget"]
+    OB --> DC{{"Domicile check"}}
+
+    DC -->|"Aceh"| ACH["Aceh route\nQanun + KHI\nMahkamah Syar'iyah"]
+    DC -->|"Papua"| PAP{"Orang asli Papua\n+ adat dispute?"}
+    DC -->|"Other provinces"| REL{"Agama?"}
+
+    PAP -->|"Yes"| ADAT["Peradilan Adat first\nCustomary law applies"]
+    PAP -->|"No"| REL
+
+    REL -->|"Muslim"| MUS["KHI primary\nPengadilan Agama"]
+    REL -->|"Non-Muslim"| NON["KUHPerdata primary\nPengadilan Negeri"]
+
+    MUS --> CC{{"Case classifier"}}
+    NON --> CC
+    ACH --> CC
+    ADAT --> CC
+
+    CC -->|"Perceraian"| DIV["DIVORCE"]
+    CC -->|"Warisan"| INH["INHERITANCE"]
+    CC -->|"Sengketa tanah"| LAND["LAND DISPUTE"]
+    CC -->|"Utang piutang"| DEBT["DEBT"]
+    CC -->|"Unclear / other"| PROBE["AI: Tell me more\nDescribe your problem"]
+
+    PROBE --> RECLASSIFY{"Can reclassify\ninto 4 scopes?"}
+    RECLASSIFY -->|"Yes"| CC
+    RECLASSIFY -->|"No"| REFER["Recommend expert lawyer\nFiltered by: domicile + budget\n+ case expertise"]
+
+    DIV --> DA{"Beda agama?"}
+    DA -->|"Yes"| DINV[/"Warning: Marriage may\nnot be legally recognized\nUU 1/1974 + Surat MA\nAdvise user to consult lawyer"/]
+    DA -->|"No"| DMED["Mandatory mediasi\nPERMA 1/2016 — max 30 days\nBoth parties must appear"]
+    DMED -->|"Mediasi berhasil"| DWIN(["Rukun kembali\nGugatan dicabut\nNo further action needed"])
+    DMED -->|"Mediasi gagal"| DPROC["Sidang tertutup\nBukti + saksi + putusan"]
+    DPROC --> DDOC["DOCS NEEDED\nSurat gugatan x5 + softcopy\nKTP penggugat\nBuku nikah asli + fotokopi\nKartu Keluarga\nAkta kelahiran anak if any\nSurat domisili if KTP differs\nBukti alasan: visum, rekaman, saksi\nBiaya panjar perkara\nMin. 2 orang saksi"]
+    DDOC --> DHOW["HOW TO PREPARE\n1. Go to PA/PN PTSP or POSBAKUM\n2. Get gugatan template free\n3. Fill: identitas + posita + petitum\n4. List alasan sah PP No.9/1975 Psl 19\n5. Pay panjar via bank\n6. Wait for sidang summons\n7. Bring 2 witnesses to court"]
+    DHOW --> DOUT(["Output: realistic outcome\nHak asuh + gono-gini + nafkah\nTimeline: 2-3 bulan\nAkta cerai from PA or Disdukcapil"])
+
+    INH --> ISYS{"Identify suku/etnis\n+ agama"}
+    ISYS -->|"Minangkabau"| IMIN["Matrilineal system\nHarta pusaka: garis ibu\nKAN musyawarah first\nHarta pencaharian: flexible"]
+    ISYS -->|"Batak"| IBAT["Patrilineal system\nAhli waris: anak laki-laki\nDalihan na tolu first\nPerempuan: jiwa-dana only"]
+    ISYS -->|"Bali"| IBAL["Purusa system\nAnak laki-laki only\nNyentana exception\nPusaka vs guna kaya split"]
+    ISYS -->|"Jawa"| IJAW["Bilateral system\nAnak L = Anak P\nSepikul segendong in Jateng\nCan divide while alive"]
+    ISYS -->|"Muslim / other"| IKHM["KHI faraidh\nPA confirms ahli waris"]
+    ISYS -->|"Non-Muslim / other"| IKUP["KUHPerdata 4 golongan\nPN confirms ahli waris"]
+
+    IMIN & IBAT & IBAL & IJAW -->|"Adat + Muslim = conflict?"| ICONF[/"Flag complexity\nRefer to adat lawyer\nFiltered by domicile"/]
+    IKHM & IKUP --> IDOC["DOCS NEEDED\nSurat permohonan x5\nKTP semua ahli waris\nKartu Keluarga pewaris\nAkta kematian pewaris\nBuku nikah pewaris\nAkta kelahiran semua ahli waris\nSurat keterangan waris from kelurahan\nAll fotokopi dinazegelen at kantor pos\nBiaya panjar perkara"]
+    IDOC --> IHOW["HOW TO PREPARE\n1. Get surat kematian from RS or kelurahan\n2. Get SKHW from kelurahan + camat\n3. Collect all KTP + KK + akta lahir\nall ahli waris\n4. Go to PA (Muslim) or PN (Non-Muslim)\n5. Request POSBAKUM help if needed\n6. All fotokopi: materai + nazegelen at kantor pos\n7. Court confirms ahli waris + bagian"]
+    IHOW --> IOUT(["Output: penetapan ahli waris\nBagian per ahli waris\nBasis: KHI faraidh or KUHPerdata golongan\nTimeline: ~1 bulan if no sengketa"])
+
+    LAND --> LSHM{"SHM exists?"}
+    LSHM -->|"Yes - clear owner"| LSTR["SHM holder strongest position\nUU 5/1960 UUPA\nPasal 1365 KUHPerdata if disputed"]
+    LSHM -->|"No SHM / overlapping"| LBPN["File complaint to BPN first\nKemenATR/BPN admin route\nCheck procedural errors"]
+    LBPN -->|"BPN resolves"| LOUT2(["BPN issues correction\nNo court needed"])
+    LBPN -->|"BPN cannot resolve"| LPN["Litigasi route\nPN where tanah is located"]
+    LSTR --> LPN
+    LAND --> LFAM{"Family dispute?"}
+    LFAM -->|"Yes"| LREC[/"Reclassify to warisan module\nAdat or KHI/KUHPerdata"/]
+    LFAM -->|"No"| LPN
+    LPN --> LDOC["DOCS NEEDED\nSurat gugatan + posita + petitum\nSertifikat hak milik SHM (strongest)\nBukti bayar PBB SPPT\nAkta jual beli or girik if no SHM\nSurat keterangan waris if inherited\nFoto lokasi + peta tanah\nDaftar saksi min. 2\nKTP penggugat\nBiaya panjar perkara"]
+    LDOC --> LHOW["HOW TO PREPARE\n1. Gather all ownership chain docs\n2. Get latest SPPT from kelurahan\n3. Prepare photo + map of tanah\n4. File to PN at location of tanah\n5. Wajib mediasi first: PERMA 1/2016\n6. If no SHM: build chain of evidence\n   PBB + saksi + girik\n7. Request pemeriksaan setempat\n   hakim will inspect tanah in person"]
+    LHOW --> LOUT(["Output: siapa yang berhak\nOrder pengosongan if applicable\nGanti rugi if PMH proven\nTimeline: 3-12 bulan"])
+
+    DEBT --> DAGR{"Written agreement?"}
+    DAGR -->|"Akta notaris"| DSTR["Strongest position\nPasal 1866 KUHPerdata\nFull evidentiary weight"]
+    DAGR -->|"Surat bermaterai"| DWEAK["Valid but weaker\nMaterai = bukan bukti sah sendiri\nNeed to authenticate"]
+    DAGR -->|"Verbal only"| DHARD[/"Very hard to pursue\nSaksi only — risky\nStrongly advise lawyer\nConsider negotiation first"/]
+    DSTR & DWEAK --> DWAN{"Type of breach?"}
+    DWAN -->|"Wanprestasi - contract breach"| DSOM["Send somasi first\nPasal 1243 KUHPerdata\nGive reasonable deadline"]
+    DWAN -->|"PMH - unlawful act"| DPMH["No somasi needed\nPasal 1365 KUHPerdata\nFile directly to PN"]
+    DSOM -->|"Ignored after somasi"| DPN["File gugatan to PN"]
+    DPMH --> DPN
+    DPN --> DNDOC["DOCS NEEDED\nSurat gugatan x5\nKTP penggugat\nBukti perjanjian: akta notaris or bermaterai\nKronologi utang tertulis\nBukti transfer or kwitansi pembayaran\nSomasi letter + bukti pengiriman\nDaftar saksi\nBiaya panjar perkara"]
+    DNDOC --> DNHOW["HOW TO PREPARE\n1. Write detailed kronologi\n2. Draft somasi: identitas + jumlah +\n   dasar hukum + deadline 14-30 hari\n3. Send somasi via registered mail\n4. Keep bukti pengiriman somasi\n5. If ignored: file to PN tergugat domicile\n6. POSBAKUM available if budget tight\n7. Small claims Gugatan Sederhana\n   if value under Rp500 juta"]
+    DNHOW --> DNOUT(["Output: bayar + bunga or\nganti rugi materiil + imateriil\nTimeline: 2-6 bulan\nSmall claims: 25 hari"])
+
+    DOUT & IOUT & LOUT & DNOUT --> RES["Legal basis resolution\nUU ke Yurisprudensi ke Hakim\nif no precedent: hakim discretion"]
+    RES --> SAVE(["Session complete\nSave: agama + domicile + budget\n+ case type + outcome + docs"])
