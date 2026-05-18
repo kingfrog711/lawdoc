@@ -43,6 +43,33 @@ class AiService {
     }
   }
 
+  // Builds the text content for a history entry, including structured output for AI messages.
+  // This ensures follow-up calls have full context of what was previously returned.
+  static String _historyContent(ChatMessage m) {
+    if (m.isUser) return m.text;
+    final cs = m.consultStructured;
+    if (cs == null) return m.text;
+
+    final sb = StringBuffer(m.text);
+    if (cs.legalBasis != null) {
+      sb.write('\n\n[DASAR HUKUM YANG DIBERIKAN: ${cs.legalBasis!.pasal} — ${cs.legalBasis!.text}]');
+      if (cs.legalBasis!.application != null) {
+        sb.write('\n[PENERAPAN: ${cs.legalBasis!.application}]');
+      }
+    }
+    if (cs.docsNeeded?.isNotEmpty == true) {
+      sb.write('\n\n[DOKUMEN YANG DIBUTUHKAN: ${cs.docsNeeded!.join(', ')}]');
+    }
+    if (cs.steps?.isNotEmpty == true) {
+      final numbered = cs.steps!.asMap().entries.map((e) => '${e.key + 1}. ${e.value}').join('; ');
+      sb.write('\n\n[LANGKAH YANG DIBERIKAN: $numbered]');
+    }
+    if (cs.outcome != null) {
+      sb.write('\n\n[PERKIRAAN HASIL: ${cs.outcome}]');
+    }
+    return sb.toString();
+  }
+
   // Primary method — calls /consult with full session context
   static Future<ConsultResult> consult(
     String message,
@@ -52,7 +79,7 @@ class AiService {
     try {
       final history = session.messages
           .where((m) => !m.isSystemMessage)
-          .map((m) => {'role': m.isUser ? 'user' : 'model', 'content': m.text})
+          .map((m) => {'role': m.isUser ? 'user' : 'model', 'content': _historyContent(m)})
           .toList();
 
       final body = <String, dynamic>{

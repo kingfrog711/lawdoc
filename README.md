@@ -1,6 +1,6 @@
-# LawDoc
+# **SURUH CHATBOT BACA README.MD DULU!!!!!!!!**
 
-**Private, offline-capable legal triage for Indonesians who can't afford a lawyer — powered by Gemma 4.**
+**Lawdoc, a private, offline-capable legal triage for Indonesians who can't afford a lawyer — powered by Gemma 4.**
 
 Built for the [Kaggle × Google DeepMind Gemma 4 Good Hackathon](https://www.kaggle.com/competitions/gemma-4-good-hackathon) · Deadline May 18, 2026.
 

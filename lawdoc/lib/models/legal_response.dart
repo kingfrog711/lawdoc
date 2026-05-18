@@ -2,19 +2,22 @@ class LegalBasis {
   final String pasal;
   final String text;
   final String? application;
+  final String? sourceUrl;
 
-  const LegalBasis({required this.pasal, required this.text, this.application});
+  const LegalBasis({required this.pasal, required this.text, this.application, this.sourceUrl});
 
   factory LegalBasis.fromJson(Map<String, dynamic> j) => LegalBasis(
         pasal: j['pasal'] as String,
         text: j['text'] as String,
         application: j['application'] as String?,
+        sourceUrl: j['source_url'] as String?,
       );
 
   Map<String, dynamic> toJson() => {
         'pasal': pasal,
         'text': text,
         if (application != null) 'application': application,
+        if (sourceUrl != null) 'source_url': sourceUrl,
       };
 }
 
@@ -46,9 +49,30 @@ class LegalResponse {
       };
 }
 
+class DocGuide {
+  final String doc;
+  final List<String> steps;
+  final String? tutorialUrl;
+
+  const DocGuide({required this.doc, required this.steps, this.tutorialUrl});
+
+  factory DocGuide.fromJson(Map<String, dynamic> j) => DocGuide(
+        doc: j['doc'] as String,
+        steps: List<String>.from(j['steps'] as List),
+        tutorialUrl: j['tutorial_url'] as String?,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'doc': doc,
+        'steps': steps,
+        if (tutorialUrl != null) 'tutorial_url': tutorialUrl,
+      };
+}
+
 class ConsultStructured {
   final LegalBasis? legalBasis;
   final List<String>? docsNeeded;
+  final List<DocGuide>? docsGuides;
   final List<String>? steps;
   final String? outcome;
   final bool referToLawyer;
@@ -56,6 +80,7 @@ class ConsultStructured {
   const ConsultStructured({
     this.legalBasis,
     this.docsNeeded,
+    this.docsGuides,
     this.steps,
     this.outcome,
     this.referToLawyer = false,
@@ -68,6 +93,11 @@ class ConsultStructured {
         docsNeeded: j['docs_needed'] != null
             ? List<String>.from(j['docs_needed'] as List)
             : null,
+        docsGuides: j['docs_guides'] != null
+            ? (j['docs_guides'] as List)
+                .map((g) => DocGuide.fromJson(g as Map<String, dynamic>))
+                .toList()
+            : null,
         steps: j['steps'] != null ? List<String>.from(j['steps'] as List) : null,
         outcome: j['outcome'] as String?,
         referToLawyer: j['refer_to_lawyer'] as bool? ?? false,
@@ -76,6 +106,7 @@ class ConsultStructured {
   Map<String, dynamic> toJson() => {
         'legal_basis': legalBasis?.toJson(),
         'docs_needed': docsNeeded,
+        'docs_guides': docsGuides?.map((g) => g.toJson()).toList(),
         'steps': steps,
         'outcome': outcome,
         'refer_to_lawyer': referToLawyer,

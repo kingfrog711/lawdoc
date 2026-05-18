@@ -9,6 +9,7 @@ import asyncio
 import os
 import json
 import re
+import urllib.parse
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException
@@ -20,10 +21,14 @@ import google.generativeai as genai
 load_dotenv()
 
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "")
+HF_API_KEY = os.getenv("HF_API_KEY", "")
 CONSULT_MODEL = "gemma-4-31b-it"
 
-if GOOGLE_API_KEY:
-    genai.configure(api_key=GOOGLE_API_KEY)
+_missing_keys = [k for k, v in {"GOOGLE_API_KEY": GOOGLE_API_KEY, "HF_API_KEY": HF_API_KEY}.items() if not v]
+if _missing_keys:
+    raise RuntimeError(f"Missing required API keys: {', '.join(_missing_keys)}. Set them in backend/.env and restart.")
+
+genai.configure(api_key=GOOGLE_API_KEY)
 
 app = FastAPI(title="LawDoc API", version="2.0.0")
 app.add_middleware(
@@ -61,11 +66,19 @@ class LegalBasisOut(BaseModel):
     pasal: str
     text: str
     application: Optional[str] = None
+    source_url: Optional[str] = None
+
+
+class DocGuide(BaseModel):
+    doc: str
+    steps: list[str]
+    tutorial_url: Optional[str] = None
 
 
 class StructuredOutput(BaseModel):
     legal_basis: Optional[LegalBasisOut] = None
     docs_needed: Optional[list[str]] = None
+    docs_guides: Optional[list[DocGuide]] = None
     steps: Optional[list[str]] = None
     outcome: Optional[str] = None
     refer_to_lawyer: bool = False
@@ -157,6 +170,43 @@ def _extract_json(text: str) -> dict:
     raise ValueError("No valid JSON found in model output")
 
 
+# ── URL helpers ───────────────────────────────────────────────────────────────
+
+_DOC_URL_MAP: list[tuple[list[str], str]] = [
+    (["ktp", "kartu tanda penduduk", "e-ktp"], "https://dukcapil.kemendagri.go.id/layanan"),
+    (["kartu keluarga", " kk ", "kk)"], "https://dukcapil.kemendagri.go.id/layanan"),
+    (["akta kelahiran", "akta lahir"], "https://dukcapil.kemendagri.go.id/layanan"),
+    (["akta kematian", "surat kematian"], "https://dukcapil.kemendagri.go.id/layanan"),
+    (["akta nikah", "surat nikah", "buku nikah"], "https://simkah4.kemenag.go.id"),
+    (["akta cerai", "surat cerai", "akta perceraian", "putusan cerai"], "https://www.mahkamahagung.go.id/id/layanan/pengadilan-agama"),
+    (["shm", "sertifikat hak milik", "sertifikat tanah", "sertipikat tanah"], "https://www.atrbpn.go.id/Layanan/Layanan-Pendaftaran-Tanah"),
+    (["shgb", "hgb", "hak guna bangunan", "sertifikat hgb"], "https://www.atrbpn.go.id/Layanan/Layanan-Pendaftaran-Tanah"),
+    (["npwp", "nomor pokok wajib pajak"], "https://www.pajak.go.id/id/npwp"),
+    (["meterai", "materai", "bea meterai"], "https://www.pajak.go.id/id/bea-meterai"),
+    (["surat kuasa"], "https://www.hukumonline.com/klinik/a/contoh-surat-kuasa-lt5d6dc9462b282/"),
+    (["surat wasiat", "wasiat"], "https://www.hukumonline.com/klinik/a/cara-membuat-surat-wasiat-lt50d2c12acb3ab/"),
+    (["surat perjanjian", "perjanjian", "kontrak"], "https://www.hukumonline.com/klinik/"),
+    (["rekening koran", "mutasi rekening", "buku tabungan"], "https://www.ojk.go.id/id/kanal/perbankan/Pages/default.aspx"),
+    (["surat gugatan", "gugatan", "permohonan"], "https://www.mahkamahagung.go.id/id/layanan"),
+    (["surat somasi", "somasi"], "https://www.hukumonline.com/klinik/a/format-surat-somasi-lt4f3a1bc7d23a8/"),
+    (["pas foto", "foto"], None),
+]
+
+
+def _pasal_source_url(pasal_str: str) -> str:
+    query = urllib.parse.quote_plus(pasal_str)
+    return f"https://www.hukumonline.com/pusatdata/search/?q={query}"
+
+
+def _doc_tutorial_url(doc_name: str) -> Optional[str]:
+    doc_lower = f" {doc_name.lower()} "
+    for keywords, url in _DOC_URL_MAP:
+        if any(kw in doc_lower for kw in keywords):
+            return url
+    query = urllib.parse.quote_plus(f"cara mengurus {doc_name} Indonesia")
+    return f"https://www.google.com/search?q={query}"
+
+
 # ── Prompts ────────────────────────────────────────────────────────────────────
 
 def _extraction_system(ctx: SessionContext) -> str:
@@ -205,6 +255,63 @@ WAJIB kembalikan HANYA JSON valid, tidak ada teks di luar JSON:
 }}"""
 
 
+def _followup_system(ctx: SessionContext) -> str:
+    budget_label = {
+        "pro_bono": "mencari bantuan pro bono / LBH",
+        "<500rb": "budget di bawah Rp500rb",
+        "500rb-2jt": "budget Rp500rb–Rp2jt",
+        ">2jt": "budget di atas Rp2jt",
+    }.get(ctx.budget or "", ctx.budget or "tidak ditentukan")
+
+    case_label = {
+        "perceraian": "PERCERAIAN",
+        "warisan": "WARIS",
+        "tanah": "SENGKETA TANAH",
+        "utang": "PIUTANG/UTANG",
+    }.get(ctx.case_type or "", (ctx.case_type or "tidak diketahui").upper())
+
+    if ctx.domicile and "aceh" in (ctx.domicile or "").lower():
+        jurisdiction = "Mahkamah Syar'iyah Aceh — Qanun dan KHI berlaku"
+    elif ctx.agama == "Islam":
+        jurisdiction = "Pengadilan Agama — KHI berlaku untuk pernikahan dan waris; KUHPerdata untuk perdata umum"
+    else:
+        jurisdiction = "Pengadilan Negeri — KUHPerdata berlaku"
+
+    return f"""Anda adalah LawDoc, konsultan hukum perdata Indonesia.
+
+KONTEKS SESI (sudah dianalisis dan disampaikan ke pengguna):
+- Agama: {ctx.agama}
+- Domisili: {ctx.domicile}
+- {budget_label}
+- Jenis kasus: {case_label}
+- Yurisdiksi: {jurisdiction}
+
+Pengguna sudah menerima analisis hukum awal. Kini mereka mengajukan pertanyaan lanjutan atau klarifikasi. Lihat riwayat percakapan untuk konteks lengkap analisis sebelumnya.
+
+INSTRUKSI:
+1. Jawab pertanyaan lanjutan secara SPESIFIK — gunakan konteks sesi dan riwayat percakapan
+2. JANGAN ulangi seluruh analisis awal; fokus hanya pada pertanyaan yang diajukan sekarang
+3. Boleh merujuk ke analisis sebelumnya ("seperti yang saya jelaskan tadi...") tapi tambahkan informasi baru yang relevan
+4. Jika pertanyaan menyentuh aspek hukum baru (pasal lain, dokumen tambahan, langkah prosedural baru), isi legal_basis / docs_needed / steps yang relevan — jangan biarkan null
+5. Jika hanya klarifikasi, penjelasan ulang, atau pertanyaan prosedur umum, kembalikan semua field structured sebagai null dan jawab di message
+6. Gunakan bahasa sehari-hari Indonesia yang hangat dan mudah dipahami
+7. Jika pertanyaan memerlukan pendampingan hukum formal di luar jangkauan AI, set refer_to_lawyer ke true
+
+WAJIB kembalikan HANYA JSON valid:
+{{
+  "message": "jawaban spesifik, natural, dan empatis untuk pertanyaan pengguna",
+  "case_type": "{ctx.case_type}",
+  "legal_basis": null,
+  "docs_needed": null,
+  "docs_guides": null,
+  "steps": null,
+  "outcome": null,
+  "refer_to_lawyer": false
+}}
+
+PENTING: Isi legal_basis / docs_needed / docs_guides / steps / outcome HANYA jika pertanyaan membutuhkan informasi hukum BARU yang belum ada di riwayat percakapan. Untuk klarifikasi atau penjelasan dari analisis yang sudah diberikan, cukup jawab di message dan biarkan field lain null."""
+
+
 def _consulting_system(ctx: SessionContext) -> str:
     budget_label = {
         "pro_bono": "mencari bantuan pro bono / LBH",
@@ -237,9 +344,10 @@ INSTRUKSI:
    UTANG: wanprestasi → somasi dulu (Pasal 1243), PMH → langsung PN (Pasal 1365); gugatan sederhana jika <Rp500jt
 3. Kutip pasal yang PALING RELEVAN dengan bunyi aslinya
 4. Daftar dokumen yang dibutuhkan sesuai profil pengguna
-5. Langkah konkret yang bisa langsung dilakukan — bukan saran generik
-6. Perkiraan hasil dan timeline yang realistis
-7. Jika kasus di luar 4 kategori atau sangat kompleks, set refer_to_lawyer ke true
+5. Untuk setiap dokumen di docs_needed, berikan 3-5 langkah konkret cara mempersiapkannya (bahasa sehari-hari, bukan jargon) di docs_guides
+6. Langkah konkret yang bisa langsung dilakukan — bukan saran generik
+7. Perkiraan hasil dan timeline yang realistis
+8. Jika kasus di luar 4 kategori atau sangat kompleks, set refer_to_lawyer ke true
 
 WAJIB kembalikan HANYA JSON valid:
 {{
@@ -251,6 +359,16 @@ WAJIB kembalikan HANYA JSON valid:
     "application": "Penerapan konkret pada kasus pengguna — gunakan detail spesifik mereka"
   }},
   "docs_needed": ["dokumen 1", "dokumen 2"],
+  "docs_guides": [
+    {{
+      "doc": "dokumen 1",
+      "steps": ["Langkah 1 cara menyiapkan dokumen ini", "Langkah 2", "Langkah 3"]
+    }},
+    {{
+      "doc": "dokumen 2",
+      "steps": ["Langkah 1", "Langkah 2"]
+    }}
+  ],
   "steps": ["Langkah 1 konkret", "Langkah 2"],
   "outcome": "Perkiraan hasil dan timeline realistis",
   "refer_to_lawyer": false
@@ -356,17 +474,39 @@ async def _handle_consulting(req: ConsultRequest) -> ConsultResponse:
     if req.document_text:
         user_msg += f"\n\n[DOKUMEN TERLAMPIR]\n{req.document_text}"
 
-    raw = await _call_gemini(_consulting_system(req.context), req.history, user_msg)
+    # Once case_type is set the user has already received a verdict — switch to follow-up mode
+    is_followup = bool(req.context.case_type)
+    system = _followup_system(req.context) if is_followup else _consulting_system(req.context)
+
+    raw = await _call_gemini(system, req.history, user_msg)
     data = _extract_json(raw)
 
     case_type = data.get("case_type") or req.context.case_type
     lb_data = data.get("legal_basis")
 
+    dg_raw = data.get("docs_guides") or []
+    docs_guides = (
+        [
+            DocGuide(doc=g["doc"], steps=g.get("steps", []), tutorial_url=_doc_tutorial_url(g["doc"]))
+            for g in dg_raw if isinstance(g, dict) and g.get("doc")
+        ] or None
+    )
+
+    lb_out = None
+    if lb_data:
+        lb_out = LegalBasisOut(
+            pasal=lb_data.get("pasal", ""),
+            text=lb_data.get("text", ""),
+            application=lb_data.get("application"),
+            source_url=_pasal_source_url(lb_data["pasal"]) if lb_data.get("pasal") else None,
+        )
+
     structured = None
-    if lb_data or data.get("docs_needed") or data.get("steps"):
+    if lb_out or data.get("docs_needed") or data.get("steps"):
         structured = StructuredOutput(
-            legal_basis=LegalBasisOut(**lb_data) if lb_data else None,
+            legal_basis=lb_out,
             docs_needed=data.get("docs_needed") or None,
+            docs_guides=docs_guides,
             steps=data.get("steps") or None,
             outcome=data.get("outcome"),
             refer_to_lawyer=data.get("refer_to_lawyer", False),

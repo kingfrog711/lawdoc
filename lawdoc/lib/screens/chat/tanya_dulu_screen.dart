@@ -2,11 +2,19 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../models/legal_response.dart';
 import '../../models/consult_session.dart';
 import '../../services/ai_service.dart';
 import '../../services/session_service.dart';
 import '../../theme/colors.dart';
+
+Future<void> _openUrl(String url) async {
+  final uri = Uri.parse(url);
+  if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+    debugPrint('Could not launch $url');
+  }
+}
 
 class TanyaDuluScreen extends StatefulWidget {
   const TanyaDuluScreen({super.key});
@@ -914,6 +922,7 @@ class _ConsultCards extends StatefulWidget {
 class _ConsultCardsState extends State<_ConsultCards> {
   bool _docsExpanded = false;
   final Set<int> _checkedDocs = {};
+  final Set<int> _expandedGuides = {};
 
   @override
   Widget build(BuildContext context) {
@@ -925,14 +934,23 @@ class _ConsultCardsState extends State<_ConsultCards> {
           const SizedBox(height: 10),
           _DocsCard(
             docs: s.docsNeeded!,
+            docsGuides: s.docsGuides,
             checked: _checkedDocs,
             expanded: _docsExpanded,
+            expandedGuides: _expandedGuides,
             onToggleExpand: () => setState(() => _docsExpanded = !_docsExpanded),
             onToggleCheck: (i) => setState(() {
               if (_checkedDocs.contains(i)) {
                 _checkedDocs.remove(i);
               } else {
                 _checkedDocs.add(i);
+              }
+            }),
+            onToggleGuide: (i) => setState(() {
+              if (_expandedGuides.contains(i)) {
+                _expandedGuides.remove(i);
+              } else {
+                _expandedGuides.add(i);
               }
             }),
           ),
@@ -956,17 +974,36 @@ class _ConsultCardsState extends State<_ConsultCards> {
 
 class _DocsCard extends StatelessWidget {
   final List<String> docs;
+  final List<DocGuide>? docsGuides;
   final Set<int> checked;
   final bool expanded;
+  final Set<int> expandedGuides;
   final VoidCallback onToggleExpand;
   final ValueChanged<int> onToggleCheck;
+  final ValueChanged<int> onToggleGuide;
   const _DocsCard({
     required this.docs,
+    this.docsGuides,
     required this.checked,
     required this.expanded,
+    required this.expandedGuides,
     required this.onToggleExpand,
     required this.onToggleCheck,
+    required this.onToggleGuide,
   });
+
+  DocGuide? _guideFor(int index) {
+    if (docsGuides == null) return null;
+    final docName = docs[index].toLowerCase();
+    try {
+      return docsGuides!.firstWhere(
+        (g) => g.doc.toLowerCase() == docName,
+        orElse: () => index < docsGuides!.length ? docsGuides![index] : throw StateError(''),
+      );
+    } catch (_) {
+      return index < docsGuides!.length ? docsGuides![index] : null;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1019,44 +1056,178 @@ class _DocsCard extends StatelessWidget {
             ),
           ),
           if (expanded)
-            ...docs.asMap().entries.map((e) => InkWell(
-                  onTap: () => onToggleCheck(e.key),
-                  child: Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(
-                          checked.contains(e.key)
-                              ? Icons.check_box_outlined
-                              : Icons.check_box_outline_blank,
-                          size: 16,
-                          color: checked.contains(e.key)
-                              ? AppColors.verified
-                              : AppColors.textMuted,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            e.value,
-                            style: GoogleFonts.inter(
-                              fontSize: 12,
-                              color: checked.contains(e.key)
-                                  ? AppColors.textMuted
-                                  : AppColors.textPrimary,
-                              decoration: checked.contains(e.key)
-                                  ? TextDecoration.lineThrough
-                                  : null,
-                              height: 1.4,
+            ...docs.asMap().entries.map((e) {
+              final guide = _guideFor(e.key);
+              final isGuideOpen = expandedGuides.contains(e.key);
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  InkWell(
+                    onTap: () => onToggleCheck(e.key),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 6, 12, 4),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            checked.contains(e.key)
+                                ? Icons.check_box_outlined
+                                : Icons.check_box_outline_blank,
+                            size: 16,
+                            color: checked.contains(e.key)
+                                ? AppColors.verified
+                                : AppColors.textMuted,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              e.value,
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                color: checked.contains(e.key)
+                                    ? AppColors.textMuted
+                                    : AppColors.textPrimary,
+                                decoration: checked.contains(e.key)
+                                    ? TextDecoration.lineThrough
+                                    : null,
+                                height: 1.4,
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                          if (guide != null)
+                            GestureDetector(
+                              onTap: () => onToggleGuide(e.key),
+                              child: Padding(
+                                padding: const EdgeInsets.only(left: 8),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      isGuideOpen
+                                          ? Icons.help
+                                          : Icons.help_outline,
+                                      size: 13,
+                                      color: const Color(0xFF0E7490),
+                                    ),
+                                    const SizedBox(width: 3),
+                                    Text(
+                                      'Cara menyiapkan',
+                                      style: GoogleFonts.inter(
+                                          fontSize: 10,
+                                          color: const Color(0xFF0E7490),
+                                          fontWeight: FontWeight.w600),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
                   ),
-                )),
+                  if (guide != null && isGuideOpen)
+                    _DocGuidePanel(guide: guide),
+                ],
+              );
+            }),
           if (expanded) const SizedBox(height: 6),
+        ],
+      ),
+    );
+  }
+}
+
+class _DocGuidePanel extends StatelessWidget {
+  final DocGuide guide;
+  const _DocGuidePanel({required this.guide});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFECFEFF),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: const Color(0xFF0E7490).withAlpha(60)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.menu_book_outlined, size: 12, color: Color(0xFF0E7490)),
+              const SizedBox(width: 5),
+              Text(
+                'CARA MENYIAPKAN',
+                style: GoogleFonts.inter(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF0E7490),
+                    letterSpacing: 0.8),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ...guide.steps.asMap().entries.map((e) => Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 16,
+                      height: 16,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF0E7490),
+                        shape: BoxShape.circle,
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        '${e.key + 1}',
+                        style: GoogleFonts.inter(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white),
+                      ),
+                    ),
+                    const SizedBox(width: 7),
+                    Expanded(
+                      child: Text(
+                        e.value,
+                        style: GoogleFonts.inter(
+                            fontSize: 11,
+                            color: const Color(0xFF164E63),
+                            height: 1.5),
+                      ),
+                    ),
+                  ],
+                ),
+              )),
+          if (guide.tutorialUrl != null) ...[
+            const SizedBox(height: 6),
+            GestureDetector(
+              onTap: () => _openUrl(guide.tutorialUrl!),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.article_outlined, size: 12, color: Color(0xFF0E7490)),
+                  const SizedBox(width: 5),
+                  Text(
+                    'Baca panduan resmi',
+                    style: GoogleFonts.inter(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF0E7490),
+                      decoration: TextDecoration.underline,
+                      decorationColor: const Color(0xFF0E7490),
+                    ),
+                  ),
+                  const SizedBox(width: 3),
+                  const Icon(Icons.open_in_new, size: 11, color: Color(0xFF0E7490)),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -1295,11 +1466,31 @@ class _LegalBasisBlock extends StatelessWidget {
                         color: AppColors.navyDeep,
                         letterSpacing: 1)),
                 const SizedBox(height: 4),
-                Text(basis.pasal,
-                    style: GoogleFonts.inter(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.navyDeep)),
+                GestureDetector(
+                  onTap: basis.sourceUrl != null ? () => _openUrl(basis.sourceUrl!) : null,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          basis.pasal,
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.navyDeep,
+                            decoration: basis.sourceUrl != null ? TextDecoration.underline : null,
+                            decorationColor: AppColors.navyDeep,
+                          ),
+                        ),
+                      ),
+                      if (basis.sourceUrl != null) ...[
+                        const SizedBox(width: 4),
+                        const Icon(Icons.open_in_new, size: 12, color: AppColors.navyDeep),
+                      ],
+                    ],
+                  ),
+                ),
                 const SizedBox(height: 6),
                 Text(basis.text,
                     style: GoogleFonts.inter(

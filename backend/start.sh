@@ -18,34 +18,29 @@ set -a
 source "$ENV_FILE"
 set +a
 
-# ── Check for missing HF_API_KEY (handles old .env without it) ────────────────
-if [ -z "$HF_API_KEY" ]; then
-  echo ""
-  echo "── HuggingFace API key required ──"
-  echo ""
-  echo "The /consult endpoint uses sirpratama/perdata-gemma4-lora via HuggingFace."
-  echo "Get a free token at: https://huggingface.co/settings/tokens"
-  echo ""
-  read -r -p "Paste your HF_API_KEY: " hf_key
-  echo ""
+# ── Validate required API keys ─────────────────────────────────────────────────
+_missing=0
 
-  if [ -z "$hf_key" ]; then
-    echo "⚠ Skipped. The /consult endpoint will return errors until HF_API_KEY is set."
-    echo "  Add it manually: echo 'HF_API_KEY=your_token' >> $ENV_FILE"
-    echo ""
-  else
-    # Append or update HF_API_KEY in .env
-    if grep -q "^HF_API_KEY=" "$ENV_FILE"; then
-      sed -i.bak "s|^HF_API_KEY=.*|HF_API_KEY=$hf_key|" "$ENV_FILE"
-      rm -f "$ENV_FILE.bak"
-    else
-      echo "HF_API_KEY=$hf_key" >> "$ENV_FILE"
-    fi
-    export HF_API_KEY="$hf_key"
-    echo "✓ HF_API_KEY saved to .env"
-    echo ""
-  fi
+if [ -z "$GOOGLE_API_KEY" ]; then
+  echo "✗ GOOGLE_API_KEY is not set. Add it to $ENV_FILE and retry."
+  _missing=1
 fi
+
+if [ -z "$HF_API_KEY" ]; then
+  echo "✗ HF_API_KEY is not set. Get a free token at https://huggingface.co/settings/tokens"
+  echo "  Add it to $ENV_FILE and retry."
+  _missing=1
+fi
+
+if [ "$_missing" -eq 1 ]; then
+  echo ""
+  echo "Both GOOGLE_API_KEY and HF_API_KEY are required. Server not started."
+  exit 1
+fi
+
+echo "✓ GOOGLE_API_KEY present"
+echo "✓ HF_API_KEY present"
+echo ""
 
 # ── Start server ───────────────────────────────────────────────────────────────
 echo "Starting LawDoc backend on http://localhost:8000 ..."
