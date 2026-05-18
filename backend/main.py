@@ -1,8 +1,8 @@
 """
-LawDoc FastAPI backend v2.0
-/consult  — stateful legal consultant (Gemma 4 via Google AI Studio)
-/tanya    — preserved legacy endpoint (Gemma via Google AI Studio)
-/ocr-explain — preserved multimodal endpoint (Google AI Studio)
+LawDoc FastAPI backend v2.1
+/consult     — stateful legal consultant (sirpratama/perdata-gemma4-lora-v2 via HuggingFace)
+/tanya       — legacy Q&A endpoint (same HF model)
+/ocr-explain — hybrid: Google AI Studio extracts image text → HF model for legal analysis
 """
 
 import asyncio
@@ -15,13 +15,16 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
-import google.generativeai as genai
+from huggingface_hub import InferenceClient
+import google.generativeai as genai  # kept for /ocr-explain image extraction only
 
 load_dotenv()
 
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "")
-CONSULT_MODEL = "gemma-4-31b-it"
+HF_API_KEY = os.getenv("HF_API_KEY", "")
+HF_ENDPOINT_URL = os.getenv("HF_ENDPOINT_URL", "")  # dedicated endpoint URL (recommended)
+CONSULT_MODEL = "sirpratama/perdata-gemma4-lora-v2"
 
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "")  # only used by /ocr-explain image step
 if GOOGLE_API_KEY:
     genai.configure(api_key=GOOGLE_API_KEY)
 
@@ -110,25 +113,25 @@ class LegalResponse(BaseModel):
     disclaimer: str
 
 
-# ── Google AI Studio helpers ───────────────────────────────────────────────────
+# ── HuggingFace inference helper ──────────────────────────────────────────────
 
-async def _call_gemini(system: str, history: list[HistoryMessage], message: str) -> str:
-    if not GOOGLE_API_KEY:
-        raise HTTPException(status_code=500, detail="GOOGLE_API_KEY not set")
+async def _call_hf(system: str, history: list[HistoryMessage], message: str) -> str:
+    if not HF_API_KEY:
+        raise HTTPException(status_code=500, detail="HF_API_KEY not configured in .env")
 
     def _sync_call() -> str:
-        model = genai.GenerativeModel(
-            model_name=CONSULT_MODEL,
-            system_instruction=system,
-            generation_config=genai.GenerationConfig(temperature=0.4, max_output_tokens=2048),
-        )
-        chat_history = [
-            {"role": msg.role, "parts": [msg.content]}
-            for msg in history
-        ]
-        chat = model.start_chat(history=chat_history)
-        response = chat.send_message(message)
-        return response.text
+        # Use dedicated endpoint URL if configured, otherwise call model by ID
+        target = HF_ENDPOINT_URL if HF_ENDPOINT_URL else CONSULT_MODEL
+        client = InferenceClient(model=target, token=HF_API_KEY)
+
+        messages: list[dict] = [{"role": "system", "content": system}]
+        for msg in history:
+            role = "assistant" if msg.role == "model" else msg.role
+            messages.append({"role": role, "content": msg.content})
+        messages.append({"role": "user", "content": message})
+
+        resp = client.chat_completion(messages=messages, max_tokens=2048, temperature=0.4)
+        return resp.choices[0].message.content
 
     return await asyncio.to_thread(_sync_call)
 
@@ -282,7 +285,7 @@ async def _handle_extracting(req: ConsultRequest) -> ConsultResponse:
     if req.document_text:
         user_msg += f"\n\n[DOKUMEN TERLAMPIR]\n{req.document_text}"
 
-    raw = await _call_gemini(_extraction_system(req.context), req.history, user_msg)
+    raw = await _call_hf(_extraction_system(req.context), req.history, user_msg)
     data = _extract_json(raw)
 
     extracted = data.get("extracted", {})
@@ -356,7 +359,7 @@ async def _handle_consulting(req: ConsultRequest) -> ConsultResponse:
     if req.document_text:
         user_msg += f"\n\n[DOKUMEN TERLAMPIR]\n{req.document_text}"
 
-    raw = await _call_gemini(_consulting_system(req.context), req.history, user_msg)
+    raw = await _call_hf(_consulting_system(req.context), req.history, user_msg)
     data = _extract_json(raw)
 
     case_type = data.get("case_type") or req.context.case_type
@@ -394,7 +397,7 @@ async def _handle_consulting(req: ConsultRequest) -> ConsultResponse:
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "model": CONSULT_MODEL, "version": "2.0.0"}
+    return {"status": "ok", "model": CONSULT_MODEL, "version": "2.1.0"}
 
 
 @app.post("/consult", response_model=ConsultResponse)
@@ -447,9 +450,6 @@ WAJIB: Kembalikan HANYA JSON valid persis format berikut, tanpa teks atau markdo
   "disclaimer": "Jawaban ini bersifat informasi umum, bukan nasihat hukum resmi. Hubungi pengacara atau LBH terdekat untuk pendampingan kasus Anda."
 }"""
 
-LEGACY_MODEL_NAME = "gemma-4-31b-it"
-
-
 def _extract_json_legacy(text: str) -> dict:
     text = re.sub(r"```(?:json)?", "", text).replace("```", "").strip()
     try:
@@ -478,19 +478,12 @@ def _extract_json_legacy(text: str) -> dict:
 
 @app.post("/tanya", response_model=LegalResponse)
 async def tanya(req: TanyaRequest):
-    if not GOOGLE_API_KEY:
-        raise HTTPException(status_code=500, detail="GOOGLE_API_KEY not set")
-    model = genai.GenerativeModel(
-        model_name=LEGACY_MODEL_NAME,
-        system_instruction=LEGACY_SYSTEM_PROMPT,
-        generation_config=genai.GenerationConfig(temperature=0.4, max_output_tokens=2048),
-    )
+    prompt = req.message
+    if req.document_text:
+        prompt = f"{req.message}\n\n[DOKUMEN TERLAMPIR]\n{req.document_text}"
     try:
-        prompt = req.message
-        if req.document_text:
-            prompt = f"{req.message}\n\n[DOKUMEN TERLAMPIR]\n{req.document_text}"
-        response = model.generate_content(prompt)
-        data = _extract_json_legacy(response.text.strip())
+        raw = await _call_hf(LEGACY_SYSTEM_PROMPT, [], prompt)
+        data = _extract_json_legacy(raw.strip())
         return LegalResponse(**data)
     except (json.JSONDecodeError, ValueError, KeyError) as e:
         raise HTTPException(status_code=500, detail=f"Model returned unparseable output: {e}")
@@ -500,21 +493,42 @@ async def tanya(req: TanyaRequest):
 
 @app.post("/ocr-explain")
 async def ocr_explain(doc_base64: str, filename: str = "document"):
-    if not GOOGLE_API_KEY:
-        raise HTTPException(status_code=500, detail="GOOGLE_API_KEY not set")
+    """
+    Hybrid pipeline:
+      Step 1 — Google AI Studio (gemini-1.5-flash) extracts text from the image.
+      Step 2 — Fine-tuned HF model analyses the extracted text for legal insights.
+    """
     import base64
-    model = genai.GenerativeModel(LEGACY_MODEL_NAME)
-    prompt = """Anda melihat sebuah dokumen hukum Indonesia.
-    Tolong:
-    1. Identifikasi jenis dokumen ini
-    2. Ekstrak 3-5 klausul atau poin penting
-    3. Jelaskan setiap klausul dalam bahasa sederhana
-    4. Tandai klausul yang perlu perhatian khusus
 
-    Format respons dalam Bahasa Indonesia yang mudah dipahami."""
+    if not GOOGLE_API_KEY:
+        raise HTTPException(status_code=500, detail="GOOGLE_API_KEY required for image extraction step")
+
+    # Step 1: extract text from the image using Google's vision model
+    ocr_model = genai.GenerativeModel("gemini-1.5-flash")
+    ocr_prompt = (
+        "Anda melihat sebuah dokumen hukum Indonesia. "
+        "Transkripsi seluruh teks yang terlihat secara lengkap dan akurat. "
+        "Kembalikan hanya teks mentah tanpa komentar tambahan."
+    )
     try:
         image_data = base64.b64decode(doc_base64)
-        response = model.generate_content([prompt, {"mime_type": "image/jpeg", "data": image_data}])
-        return {"explanation": response.text}
+        ocr_resp = ocr_model.generate_content(
+            [ocr_prompt, {"mime_type": "image/jpeg", "data": image_data}]
+        )
+        extracted_text = ocr_resp.text.strip()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Image extraction error: {e}")
+
+    # Step 2: fine-tuned HF model provides legal analysis on the extracted text
+    legal_system = (
+        "Anda adalah LawDoc, konsultan hukum perdata Indonesia. "
+        "Anda menerima teks yang diekstrak dari dokumen hukum. "
+        "Analisis dokumen tersebut: identifikasi jenis dokumen, ekstrak 3-5 klausul penting, "
+        "jelaskan setiap klausul dalam bahasa sederhana, dan tandai klausul yang perlu perhatian khusus. "
+        "Gunakan Bahasa Indonesia yang mudah dipahami."
+    )
+    try:
+        analysis = await _call_hf(legal_system, [], f"[DOKUMEN TERLAMPIR]\n{extracted_text}")
+        return {"explanation": analysis, "extracted_text": extracted_text}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
