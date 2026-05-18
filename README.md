@@ -1,426 +1,466 @@
 # LawDoc
 
-**Private, offline-capable legal triage for Indonesians who can't afford a lawyer — powered by Gemma 4.**
+Private, practical legal literacy and civil-law triage for Indonesians who need a starting point before they can reach a lawyer.
 
-Built for the [Kaggle × Google DeepMind Gemma 4 Good Hackathon](https://www.kaggle.com/competitions/gemma-4-good-hackathon) · Deadline May 18, 2026.
+LawDoc is built for the [Kaggle and Google DeepMind Gemma 4 Good Hackathon](https://www.kaggle.com/competitions/gemma-4-good-hackathon/overview). The project targets two hackathon tracks:
 
-> "The only offline-capable, privacy-first legal triage app for Indonesian civil law."
+- **Future of Education**: LawDoc teaches users how Indonesian civil-law processes work in plain language, adapting explanations to their religion, domicile, budget, case type, and uploaded documents.
+- **Unsloth Track**: LawDoc uses a Gemma 4 LoRA fine-tune trained with Unsloth for Indonesian civil-law reasoning, served through Modal/vLLM as `perdata-lora`.
 
----
+LawDoc is not an AI lawyer and does not provide official legal advice. It is a guided triage and legal education tool that helps users understand likely legal routes, required documents, next steps, and when to contact a lawyer or legal aid organization.
 
-## What is LawDoc?
+## Why LawDoc Exists
 
-Around 60 million lower-middle income Indonesians have legal problems but cannot afford a lawyer. LawDoc gives them a starting point:
+Many Indonesians face inheritance, divorce, debt, land, and document problems without easy access to affordable legal help. The first barrier is often not court representation; it is understanding what the problem is, which institution handles it, what documents are needed, and what a realistic next step looks like.
 
-- **Ask a question in plain Indonesian** → get a structured answer: what the law says, how it applies to your specific situation, and what to do next
-- **Upload a legal document** → get a plain-language breakdown of what it means
-- **Find a pro-bono lawyer** → filter by specialization and eligibility
-- **Learn the basics** → plain-language articles on Indonesian civil law
+LawDoc turns a legal question or uploaded document into:
 
-LawDoc is not an AI lawyer. It's a triage tool — it helps people understand their situation before they talk to one.
+- A plain-language explanation of the user's situation.
+- A relevant legal basis and concrete application to the user's facts.
+- A checklist of documents to prepare.
+- Step-by-step next actions.
+- A realistic outcome and timeline.
+- A referral recommendation when the case is too complex for self-guided triage.
 
----
+## Current Status
 
-## Demo
+This repository is an MVP/prototype with a working Flutter client, FastAPI backend, Modal/vLLM model-serving definition, document parsing endpoint, test prompts, and mock domain data.
 
-| Screen | Description |
-|---|---|
-| Tanya Dulu | AI chat powered by Gemma 4 — ask any civil law question in Indonesian |
-| Browse Lawyers | PERADI-verified lawyers with transparent pricing and pro-bono filter |
-| Pro Bono Checker | Income-based eligibility form connected to the LBH network |
-| Knowledge Base | Bite-sized legal explainers on divorce, inheritance, debt, and land |
+Implemented:
 
----
+- Flutter Android/Web app with onboarding, chat, lawyer browsing, pro-bono screen, and knowledge base.
+- Main `/consult` chatbot flow with a stateless backend state machine.
+- Client-side session persistence in `lawdoc_session.json`.
+- Fine-tuned Gemma 4 LoRA path through Modal/vLLM.
+- Document upload parsing through LlamaParse before consultation.
+- Structured AI response rendering in the chat UI.
+- Legacy `/tanya` and `/ocr-explain` endpoints preserved for compatibility.
+- Test prompts and sample legal documents under `testcases/`.
+
+Not production-ready:
+
+- Lawyer and article data are local mocks.
+- There is no backend database or authentication.
+- Legal aid/pro-bono routing is not connected to a real LBH/PERADI directory.
+- `/ocr-explain` is a legacy endpoint and is not the primary document flow.
+- The app is a legal education and triage tool, not a substitute for a lawyer.
+
+## Architecture
+
+![LawDoc architecture diagram](public/images/diagram-export-5-19-2026-4_40_00-AM.png)
+
+## Runtime Flow
+
+1. The user opens the Flutter app and enters the Tanya Dulu chat.
+2. `SessionService` loads or creates a `ConsultSession`.
+3. The user sends a message and optionally attaches a document.
+4. If a file is attached, Flutter sends it to `/parse-document`; the backend uses LlamaParse to return clean text.
+5. Flutter sends the message, session context, chat history, and optional document text to `/consult`.
+6. FastAPI routes the request by `flow_state`:
+   - `extracting`: ask the model to infer religion, domicile, and budget.
+   - `confirming`: ask the user to confirm or correct the detected profile.
+   - `consulting`: ask the model for structured legal analysis.
+   - `referring`: continue consultation while showing a lawyer referral recommendation.
+7. Flutter renders the model response as chat text plus structured cards for legal basis, document checklist, next steps, outcome, and referral.
+8. Flutter persists the updated session locally.
 
 ## Tech Stack
 
-| Layer | Tech |
+| Layer | Technology |
 |---|---|
-| Mobile app | Flutter 3.35.7 (Android + Web) |
-| Backend | FastAPI (Python) |
-| AI model | **Gemma 4** (`gemma-4-31b-it`) via Google AI Studio API |
-| Navigation | GoRouter with ShellRoute bottom nav |
-| Fonts | Playfair Display (headings) · Inter (body) via google_fonts |
+| Client | Flutter, Dart |
+| Navigation | GoRouter with ShellRoute bottom navigation |
+| Styling | Custom theme, `google_fonts` |
+| Client storage | `path_provider` local JSON file |
+| Backend | FastAPI, Pydantic, Uvicorn |
+| Model client | `huggingface_hub.InferenceClient` |
+| Model serving | Modal web server with vLLM |
+| Base model | `unsloth/gemma-4-E4B-it` |
+| Fine-tune | `sirpratama/perdata-gemma4-lora-v2` |
+| Fine-tuning track | Unsloth |
+| Document parsing | LlamaCloud / LlamaParse |
+| Legacy OCR | Google AI Studio / Gemini image OCR |
 
----
+## Repository Layout
+
+```text
+.
+|-- README.md
+|-- modal_app.py
+|-- legal_consultant_ai_flow_v2.mmd
+|-- backend/
+|   |-- main.py
+|   |-- requirements.txt
+|   |-- .env.example
+|   |-- setup.sh
+|   |-- setup.ps1
+|   |-- start.sh
+|   `-- start.ps1
+|-- lawdoc/
+|   |-- pubspec.yaml
+|   |-- lib/
+|   |   |-- main.dart
+|   |   |-- app.dart
+|   |   |-- models/
+|   |   |-- services/
+|   |   |-- screens/
+|   |   |-- widgets/
+|   |   |-- theme/
+|   |   |-- data/
+|   |   `-- l10n/
+|   |-- assets/data/kuhperdata.json
+|   |-- test/
+|   |-- android/
+|   `-- web/
+`-- testcases/
+    |-- prompts.md
+    `-- documents/
+```
+
+## Key Files
+
+| File | Why it matters |
+|---|---|
+| `backend/main.py` | FastAPI app, `/consult` state machine, prompts, JSON extraction, document parsing, legacy endpoints |
+| `modal_app.py` | Modal/vLLM deployment for the Gemma 4 base model plus LoRA adapter |
+| `lawdoc/lib/services/ai_service.dart` | Flutter HTTP integration for health checks, consultation, parsing, and legacy Q&A |
+| `lawdoc/lib/services/session_service.dart` | Local session persistence through `lawdoc_session.json` |
+| `lawdoc/lib/models/consult_session.dart` | Client session, context, and `/consult` response models |
+| `lawdoc/lib/models/legal_response.dart` | Shared legal response and structured consultation card models |
+| `lawdoc/lib/screens/chat/tanya_dulu_screen.dart` | Main chat UI, file picker, context bar, structured answer cards |
+| `legal_consultant_ai_flow_v2.mmd` | Domain decision tree for legal triage routing |
+| `testcases/prompts.md` | Manual prompt set for inheritance, divorce, debt, land, and edge cases |
+
+## Backend API
+
+### `GET /health`
+
+Returns service status, model name, and API version.
+
+```json
+{
+  "status": "ok",
+  "model": "sirpratama/perdata-gemma4-lora-v2",
+  "version": "2.1.0"
+}
+```
+
+### `POST /consult`
+
+Primary chatbot endpoint. The backend is stateless; the client sends the full session context and history each time.
+
+Request:
+
+```json
+{
+  "session_id": "session-id",
+  "message": "Saya ingin bertanya soal warisan keluarga.",
+  "document_text": "optional parsed document text",
+  "context": {
+    "agama": "Islam",
+    "domicile": "Jakarta",
+    "budget": "pro_bono",
+    "case_type": null,
+    "confirmed": false,
+    "flow_state": "extracting"
+  },
+  "history": [
+    { "role": "user", "content": "..." },
+    { "role": "model", "content": "..." }
+  ]
+}
+```
+
+Response:
+
+```json
+{
+  "message": "Natural-language response in Indonesian.",
+  "flow_state": "consulting",
+  "context_update": {
+    "agama": "Islam",
+    "domicile": "Jakarta",
+    "budget": "pro_bono",
+    "case_type": "warisan",
+    "confirmed": true,
+    "flow_state": "consulting"
+  },
+  "structured": {
+    "legal_basis": {
+      "pasal": "KUHPerdata Pasal ...",
+      "text": "Quoted legal text",
+      "application": "How the rule applies to this user's facts"
+    },
+    "docs_needed": ["KTP", "Kartu Keluarga"],
+    "steps": ["Step 1", "Step 2"],
+    "outcome": "Likely result and timeline",
+    "refer_to_lawyer": false
+  },
+  "disclaimer": "Jawaban ini bersifat informasi umum..."
+}
+```
+
+### `POST /parse-document`
+
+Uploads a document as `multipart/form-data` under field name `file`. The backend validates file type and size, sends it to LlamaParse, and returns markdown/text for `/consult`.
+
+Supported extensions include PDF, DOCX, DOC, PPTX, XLSX, TXT, MD, RTF, HTML, ODT, EPUB, PNG, JPG, WEBP, BMP, GIF, and TIFF. Maximum upload size is 15 MB.
+
+Response:
+
+```json
+{
+  "text": "# Parsed document markdown...",
+  "filename": "contract.pdf",
+  "char_count": 1234
+}
+```
+
+### Legacy endpoints
+
+| Endpoint | Status | Notes |
+|---|---|---|
+| `POST /tanya` | Legacy | Simple Q&A schema retained for compatibility and tests |
+| `POST /ocr-explain` | Legacy | Uses Google AI Studio for image text extraction, then the legal model for analysis |
+
+## State Machine
+
+The `/consult` endpoint uses a stateless state machine. Flutter owns the session and sends `flow_state`, context, and history on every request.
+
+| Current state | Trigger | Next state | What happens |
+|---|---|---|---|
+| `extracting` | Missing religion, domicile, or budget | `extracting` | The model asks one natural follow-up question. |
+| `extracting` | All profile fields detected | `confirming` | Backend asks the user to confirm the detected profile. |
+| `confirming` | User corrects profile | `extracting` | Backend re-runs extraction with the corrected information. |
+| `confirming` | User confirms profile | `consulting` | Backend calls the model for full legal analysis. |
+| `consulting` | Continued legal question | `consulting` | Backend returns updated structured guidance. |
+| `consulting` | Model sets `refer_to_lawyer` | `referring` | Chat displays a lawyer referral recommendation. |
+| `referring` | User continues conversation | `consulting` | Backend continues legal analysis with existing context. |
+
+## Environment Variables
+
+Copy `backend/.env.example` to `backend/.env` and fill what you need.
+
+| Variable | Required | Purpose |
+|---|---:|---|
+| `HF_API_KEY` | Yes for live model | Hugging Face token with read access to the private LoRA repo |
+| `HF_ENDPOINT_URL` | Yes for live model | Modal/vLLM OpenAI-compatible endpoint URL |
+| `HF_LORA_ADAPTER_NAME` | Yes | Adapter name exposed by vLLM, default `perdata-lora` |
+| `LLAMA_CLOUD_API_KEY` | Yes for file upload | Enables `/parse-document` through LlamaParse |
+| `GOOGLE_API_KEY` | Optional | Only needed for legacy `/ocr-explain` image OCR |
+| `API_BASE_URL` | Optional Flutter define | Overrides Flutter backend URL; default is `http://localhost:8000` |
+
+Never commit `backend/.env`.
 
 ## Quick Start
 
 ### Prerequisites
 
-| Tool | Version needed |
-|---|---|
-| Flutter | 3.x |
-| Java | **21** — Gradle 8.14 requires 17–23. Java 25 breaks the build. |
-| Python | 3.10+ |
-| Google AI Studio API key | [Get one here](https://aistudio.google.com) |
+- Flutter 3.x
+- Dart SDK matching the Flutter install
+- Python 3.10+
+- Java 21 for Android builds
+- Hugging Face token with access to `sirpratama/perdata-gemma4-lora-v2`
+- LlamaCloud API key for document parsing
+- Modal account for live model serving
 
-> **Java 21 on macOS:** `brew install --cask temurin@21` then `flutter config --jdk-dir="/Library/Java/JavaVirtualMachines/temurin-21.jdk/Contents/Home"`
+### 1. Install backend dependencies
 
----
+PowerShell:
 
-### 1. Backend
+```powershell
+cd backend
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+Copy-Item .env.example .env
+```
+
+Bash:
 
 ```bash
 cd backend
-
-# Create virtualenv and install
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-
-# Set your API key
-echo 'GOOGLE_API_KEY=your_key_here' > .env
-
-# Start
-bash start.sh
+cp .env.example .env
 ```
 
-If you see `[Errno 48] Address already in use`:
+Edit `backend/.env` with your keys.
+
+### 2. Deploy the model server with Modal
+
+Install and authenticate Modal:
+
 ```bash
-lsof -ti :8000 | xargs kill -9
+pip install modal
+modal setup
+```
+
+Create the Hugging Face secret:
+
+```bash
+modal secret create huggingface-secret HF_TOKEN=hf_your_token_here
+```
+
+Deploy:
+
+```bash
+modal deploy modal_app.py
+```
+
+Modal prints a URL similar to:
+
+```text
+https://your-username--lawdoc-vllm-serve.modal.run
+```
+
+Put that URL in `backend/.env`:
+
+```env
+HF_ENDPOINT_URL=https://your-username--lawdoc-vllm-serve.modal.run
+HF_LORA_ADAPTER_NAME=perdata-lora
+```
+
+### 3. Start the backend
+
+PowerShell:
+
+```powershell
+cd backend
+.\start.ps1
+```
+
+Bash:
+
+```bash
+cd backend
 bash start.sh
 ```
 
-Verify it's running:
+Verify:
+
 ```bash
 curl http://localhost:8000/health
-# → {"status":"ok","model":"gemma-4-31b-it"}
 ```
 
----
-
-### 2. Flutter app
+### 4. Start the Flutter app
 
 ```bash
 cd lawdoc
 flutter pub get
-flutter analyze          # should report 0 issues
-
-flutter run -d chrome                  # web
-flutter run -d <device-id>             # android (flutter devices to list)
-flutter build apk --debug              # build APK
+flutter run -d chrome
 ```
 
-> **Physical device:** change `localhost` to your machine's LAN IP in `lawdoc/lib/services/ai_service.dart` (`_base` constant).
-
----
-
-### 3. Running both together
-
-Open two terminals:
+For a deployed backend:
 
 ```bash
-# Terminal 1
-cd backend && bash start.sh
-
-# Terminal 2
-cd lawdoc && flutter run -d chrome
+flutter run -d chrome --dart-define=API_BASE_URL=https://your-backend.example.com
 ```
 
----
+For Android on a physical device, `localhost` points to the phone, not your computer. Use your computer's LAN IP or a deployed backend URL through `API_BASE_URL`.
 
-## Testing the chatbot
+## Testing
 
-Test prompts are in [`testcases/prompts.md`](testcases/prompts.md) organized by category.
+Flutter unit tests:
 
-| Category | Prompt IDs |
-|---|---|
-| Waris — inheritance | W-01 to W-05 |
-| Perceraian — divorce | P-01 to P-05 |
-| Utang piutang — debt | U-01 to U-05 |
-| Sengketa tanah — land | T-01 to T-05 |
-| Edge cases | E-01 to E-05 |
-
-Mock legal documents for file-attachment testing: [`testcases/documents/`](testcases/documents/)
-
-**Quick manual test:**
 ```bash
-curl -X POST http://localhost:8000/tanya \
+cd lawdoc
+flutter test
+```
+
+Static analysis:
+
+```bash
+cd lawdoc
+flutter analyze
+```
+
+Manual prompts:
+
+- Prompt suite: [`testcases/prompts.md`](testcases/prompts.md)
+- Sample documents: [`testcases/documents/`](testcases/documents/)
+
+Example consultation call:
+
+```bash
+curl -X POST http://localhost:8000/consult \
   -H "Content-Type: application/json" \
-  -d '{"message": "Ayah saya meninggal tanpa wasiat. Ada 3 anak dan istri masih hidup. Bagaimana harta dibagi?"}'
+  -d '{
+    "session_id": "demo",
+    "message": "Ayah saya meninggal tanpa wasiat. Ada ibu dan tiga anak. Bagaimana pembagian warisnya?",
+    "context": {
+      "agama": null,
+      "domicile": null,
+      "budget": null,
+      "case_type": null,
+      "confirmed": false,
+      "flow_state": "extracting"
+    },
+    "history": []
+  }'
 ```
 
----
+## Hackathon Track Fit
 
-## AI Response Format
+### Future of Education
 
-Every `/tanya` response uses this schema:
+LawDoc treats legal access as an education problem. It teaches users the practical steps of Indonesian civil-law processes, including court routes, mediation, required documents, and realistic timelines. The app adapts explanations to the user's profile rather than returning a generic article.
 
-```json
-{
-  "summary": "2-3 sentences specific to the user's situation",
-  "legal_basis": {
-    "pasal": "KUHPerdata Pasal 852",
-    "text": "Full pasal text as written in law",
-    "application": "How this pasal applies to THIS user's specific facts"
-  },
-  "steps": ["Step 1", "Step 2", "Step 3"],
-  "disclaimer": "..."
-}
-```
+Examples:
 
-The `application` field is the key design decision — it forces Gemma to tie the legal text to the user's actual details (number of heirs, debt amounts, relationship, etc.) rather than giving a generic quote.
+- A Muslim user in Aceh receives different jurisdiction guidance than a non-Muslim user in Jakarta.
+- A user with a pro-bono budget receives legal aid-oriented next steps.
+- A land dispute with no SHM is routed toward BPN-first guidance before litigation.
+- A complex inheritance case can trigger a lawyer referral recommendation.
 
----
+### Unsloth Track
 
-## Project Structure
+LawDoc uses an Unsloth-trained LoRA fine-tune for Indonesian civil-law reasoning:
 
-```
-GEMMA 4/
-├── lawdoc/                         Flutter app
-│   ├── lib/
-│   │   ├── main.dart
-│   │   ├── app.dart                GoRouter
-│   │   ├── theme/                  colors.dart, theme.dart
-│   │   ├── models/                 legal_response.dart, lawyer.dart, article.dart
-│   │   ├── data/                   mock_lawyers, mock_articles, mock_ai_responses
-│   │   ├── services/               ai_service.dart
-│   │   ├── screens/                7 screens
-│   │   └── widgets/                shell_scaffold.dart (bottom nav)
-│   └── assets/data/
-│       └── kuhperdata.json         7 seeded KUHPerdata pasals
-├── backend/
-│   ├── main.py                     FastAPI app — /tanya + /ocr-explain
-│   ├── requirements.txt
-│   ├── start.sh
-│   └── .env                        API key — gitignored, never commit
-├── testcases/
-│   ├── prompts.md                  Organized test prompts
-│   └── documents/                  Mock legal documents for file upload tests
-└── README.md
-```
+- Base model: `unsloth/gemma-4-E4B-it`
+- Adapter: `sirpratama/perdata-gemma4-lora-v2`
+- Served as: `perdata-lora`
+- Runtime: Modal-hosted vLLM OpenAI-compatible server
 
----
+The fine-tune is used to improve domain grounding for KUHPerdata-style civil-law answers and structured JSON output.
 
-## Design Tokens
+## Design And UX Notes
 
-| Name | Hex | Used for |
+The app is intentionally built around plain-language legal education:
+
+- Short chat turns instead of long legal essays.
+- Context bar for religion, domicile, and budget.
+- Structured answer cards for legal basis, document checklist, steps, outcome, and referral.
+- Indonesian-first text, with English localization scaffolding.
+- Prominent disclaimer that the AI is not a substitute for a lawyer.
+
+## Known Limitations
+
+- The project currently has no real user accounts.
+- Sessions persist only on the current device.
+- Lawyer profiles and articles are mock data.
+- The KUHPerdata JSON asset is small and not a full retrieval database.
+- Live model calls require Modal/HF configuration and can cold-start.
+- Document parsing depends on LlamaCloud availability and API quota.
+- `/consult` relies on valid JSON from the model; `backend/main.py` includes JSON extraction fallback, but malformed output can still fail.
+- `backend/main.py` currently declares FastAPI version `2.0.0`, while `/health` returns `2.1.0`.
+
+## Common Problems
+
+| Problem | Likely cause | Fix |
 |---|---|---|
-| Navy deep | `#162040` | Buttons, headers, primary text |
-| Cream | `#EDE8E1` | App background |
-| Gold | `#C9A844` | PERADI badge, accents |
-| Amber card | `#F5E3C0` | Pro-bono hero, disclaimer banners |
+| Flutter cannot reach backend | Wrong `API_BASE_URL` or physical device using `localhost` | Use deployed backend URL or LAN IP |
+| `/consult` returns HF auth error | Missing or invalid `HF_API_KEY` | Check `backend/.env` and private repo access |
+| `/consult` cannot connect to model | Missing `HF_ENDPOINT_URL` or Modal app is cold/not deployed | Deploy `modal_app.py` and update `.env` |
+| File upload fails | Missing `LLAMA_CLOUD_API_KEY` or unsupported file | Add key and check extension/size |
+| Android build fails with Java error | Wrong JDK version | Use Java 21 |
 
----
+## Related Documentation
 
-## Common Issues
+- [`legal_consultant_ai_flow_v2.mmd`](legal_consultant_ai_flow_v2.mmd): domain decision tree for the legal consultant flow.
+- [`testcases/prompts.md`](testcases/prompts.md): manual evaluation prompts.
 
-| Problem | Fix |
-|---|---|
-| `flutter build apk` fails with a version number as the error | Gradle is using the wrong Java. Run `flutter config --jdk-dir=".../jdk-21.jdk/Contents/Home"` |
-| App shows mock responses even though backend is running | On a physical device, `localhost` doesn't resolve. Update `_base` in `ai_service.dart` to your LAN IP |
-| Backend returns 500 on `/tanya` | Check that `.env` exists and contains a valid `GOOGLE_API_KEY`. Restart server after changes |
-| `Address already in use` on backend start | `lsof -ti :8000 \| xargs kill -9` then retry |
+## License
 
----
-
-## For Developers
-
-This section describes what is **incomplete, stubbed, or known-rough** so contributors and AI tools have accurate context and don't build on wrong assumptions.
-
-### What's done ✓
-
-- All 7 Flutter screens built and navigable
-- Real Gemma 4 (`gemma-4-31b-it`) calls via FastAPI backend
-- Structured JSON response schema with `application` field (contextual pasal application)
-- File attachment in chat (txt/pdf → sent as `document_text` to backend)
-- Graceful offline fallback to keyword-matched mock responses
-- Live backend status indicator in chat screen (green = Gemma live, red = offline/mock)
-- Per-message source badge ("Gemini AI" vs "Offline · Template lokal")
-- Android APK builds successfully (debug)
-- Web build works (`flutter build web`)
-- Test prompts and mock legal documents in `testcases/`
-- README and setup guide complete
-
-### What's missing / stubbed ✗
-
-**Kaggle notebook** ← most critical gap for hackathon judging
-- A standalone Jupyter notebook demonstrating Gemma 4 doing the Tanya Dulu flow end-to-end is required for the hackathon submission
-- Input: plain Indonesian text describing a legal problem
-- Output: structured JSON (summary, pasal reference, action steps) using function calling against the KUHPerdata dataset
-- Not yet started
-
-**`/ocr-explain` endpoint — stubbed, untested**
-- The endpoint exists in `backend/main.py` and accepts a base64 image
-- It has never been tested with a real image
-- The Flutter app has no UI for image capture (only text file attachment)
-- The multimodal flow (user photographs a document → Gemma reads it) would be a strong demo but is not working end-to-end
-
-**Gemma 4 response latency**
-- `gemma-4-31b-it` responses take 15–40 seconds via AI Studio API
-- The app shows a typing indicator during this time but there's no timeout feedback for the user
-- `gemma-4-26b-a4b-it` (MoE variant, 4B active params) is available and faster — worth testing if latency is a problem
-
-**Real Android device testing**
-- The APK builds but has not been tested on a physical device
-- `localhost` must be changed to the dev machine's LAN IP for the backend to be reachable from Android
-
-**Lawyer and article data is all mock**
-- `lib/data/mock_lawyers.dart` — 4 hardcoded lawyers (Wibowo, Kartika, Pranoto, Ratna)
-- `lib/data/mock_articles.dart` — 6 hardcoded articles
-- No real PERADI API, no database, no backend for lawyer search
-- For the hackathon demo this is fine; for a real product these need replacing
-
-**No authentication**
-- The home screen greets "Pak Budi" — hardcoded, no user accounts
-- No session persistence beyond the current Flutter session
-
-**KUHPerdata dataset is minimal**
-- `assets/data/kuhperdata.json` has 7 pasals (832, 833, 207, 209, 1233, 1313, 1365)
-- Gemma still cites the correct pasals from its training data — the JSON is used as a reference for the mock fallback only, not injected into the Gemma prompt
-
-**Pro-bono eligibility form is not connected to anything**
-- The form collects income and case type but submits to a local state change (shows a success screen)
-- No backend, no real LBH network lookup
-
-**iOS not supported**
-- Xcode is not fully installed on the dev machine
-- Android + Web are the only tested targets
-
-### Key files to look at first
-
-| File | Why |
-|---|---|
-| `backend/main.py` | System prompt, `/tanya` endpoint, `_extract_json()` for Gemma 4 reasoning output |
-| `lawdoc/lib/services/ai_service.dart` | HTTP call, health check, mock fallback, `AiResult` type |
-| `lawdoc/lib/models/legal_response.dart` | All data models including `LegalBasis.application` |
-| `lawdoc/lib/screens/chat/tanya_dulu_screen.dart` | Chat UI, file attachment, backend status indicator |
-
-### Notes on Gemma 4 output
-
-Gemma 4 (`gemma-4-31b-it`) is a reasoning model — it emits chain-of-thought text before the final answer. The `_extract_json()` function in `backend/main.py` handles this by walking all brace-matched blocks from the end of the response and returning the last valid JSON that contains `summary` and `legal_basis`. If the model output changes shape, this is the first place to debug.
-
-The system prompt is in `backend/main.py` as `SYSTEM_PROMPT`. It explicitly instructs Gemma to apply the pasal to the user's specific facts using their stated details (number of heirs, names, amounts, etc.). Changes to this prompt have the highest leverage on response quality.
-
----
-
-## Current Architecture (as of May 2026)
-
-This section reflects the actual built state. Use it as ground truth when picking up the project.
-
-### `/consult` endpoint — the main chatbot
-
-The chatbot now uses a **stateless backend state machine**. Flutter owns the full session and sends it with every request; the backend applies logic and returns the next state.
-
-```
-Flutter app
-  └─ SessionService (path_provider JSON at lawdoc_session.json — survives restarts)
-  └─ AiService.consult(message, session, documentText?)
-       └─ POST http://localhost:8000/consult
-            └─ FastAPI state machine (routes by flow_state)
-                 └─ gemma-4-31b-it via Google AI Studio (asyncio.to_thread)
-                      └─ Returns structured JSON + next_state + context_update
-```
-
-**Fallback:** if backend is offline or returns an error → shows `"Model sedang tidak tersedia, coba lagi nanti."` as a system message in chat. No mock responses for `/consult`.
-
-**Legacy:** `/tanya` and `/ocr-explain` are preserved and untouched. They still use `gemma-4-31b-it` via Google AI Studio.
-
-### Consultant flow (5 states)
-
-| State | What happens |
-|---|---|
-| `extracting` | AI reads user message passively, extracts agama / domicile / budget, asks natural follow-ups if missing |
-| `confirming` | Once all 3 are known, AI says "Saya deteksi Anda beragama X, domisili Y, budget Z — apakah benar?" — no model call, backend generates the string directly |
-| `consulting` | User confirms → backend immediately calls model with full history for deep legal analysis |
-| `referring` | Model sets `refer_to_lawyer: true` → shows referral banner |
-| (correction) | User says something other than "ya/iya/benar" during confirming → re-runs extraction on the correction |
-
-Context (agama / domicile / budget / case_type / flow_state) is sent in the request body by Flutter and persisted client-side in `lawdoc_session.json`.
-
-### Session schema (client-side JSON)
-
-```json
-{
-  "session_id": "uuid",
-  "agama": "Islam|Kristen|Hindu|Buddha|Konghucu|null",
-  "domicile": "province string | null",
-  "budget": "pro_bono|<500rb|500rb-2jt|>2jt|null",
-  "case_type": "perceraian|warisan|tanah|utang|unclear|null",
-  "flow_state": "extracting|confirming|consulting|referring",
-  "confirmed": false,
-  "messages": [],
-  "created_at": "ISO8601",
-  "updated_at": "ISO8601"
-}
-```
-
-### `/consult` request / response schema
-
-**Request:**
-```json
-{
-  "session_id": "uuid",
-  "message": "user's message",
-  "context": { "flow_state": "extracting", "agama": null, "domicile": null, "budget": null, "confirmed": false },
-  "history": [{ "role": "user|model", "content": "..." }],
-  "document_text": "optional — text extracted from attached file"
-}
-```
-
-**Response:**
-```json
-{
-  "message": "natural language response",
-  "flow_state": "next state",
-  "context_update": {
-    "agama": "extracted or null",
-    "domicile": "extracted or null",
-    "budget": "extracted or null",
-    "case_type": "classified or null",
-    "confirmed": true
-  },
-  "structured": {
-    "legal_basis": { "pasal": "KUHPerdata Pasal XXX", "text": "...", "application": "..." },
-    "docs_needed": ["doc1", "doc2"],
-    "steps": ["step1", "step2"],
-    "outcome": "realistic outcome + timeline",
-    "refer_to_lawyer": false
-  },
-  "disclaimer": "..."
-}
-```
-
-`structured` is null during extracting/confirming. Only populated once consulting begins.
-
-### Jurisdiction routing (inside backend prompts)
-
-- Domicile contains "aceh" → Mahkamah Syar'iyah (Qanun + KHI)
-- Agama = Islam → Pengadilan Agama for marriage/inheritance; KUHPerdata for general civil
-- Otherwise → Pengadilan Negeri, KUHPerdata
-
-Adat nuance injected for inheritance: Minangkabau = matrilineal (KAN), Batak = patrilineal (Dalihan na Tolu), Bali = purusa, Jawa = bilateral.
-
-### New files added (not in the original structure above)
-
-| File | Purpose |
-|---|---|
-| `lawdoc/lib/models/consult_session.dart` | `SessionContextModel`, `ConsultResponse`, `ConsultSession` — session + context state models |
-| `lawdoc/lib/services/session_service.dart` | `SessionService.load()` / `.save()` / `.clear()` — JSON file persistence via path_provider |
-| `legal_consultant_ai_flow_v2.mmd` | Mermaid flow diagram — the consultant decision tree the backend implements |
-
-### Updated files (since initial commit)
-
-| File | What changed |
-|---|---|
-| `backend/main.py` | Added `/consult` state machine; `_call_gemini()` replaces `_call_hf()`; legacy endpoints untouched |
-| `backend/setup.sh` | Prompts for both `GOOGLE_API_KEY` and `HF_API_KEY` on first run |
-| `backend/start.sh` | Checks for missing `HF_API_KEY` after sourcing `.env`, prompts and saves if empty |
-| `backend/.env.example` | Added `HF_API_KEY` placeholder |
-| `lawdoc/pubspec.yaml` | Added `path_provider: ^2.1.4` |
-| `lawdoc/lib/models/legal_response.dart` | Added `ConsultStructured`; updated `ChatMessage` with `consultStructured`, `isSystemMessage`, `toJson()`/`fromJson()` |
-| `lawdoc/lib/services/ai_service.dart` | Added `ConsultResult` + `consult()` method; legacy `query()` preserved |
-| `lawdoc/lib/screens/chat/tanya_dulu_screen.dart` | Full rewrite — context bar, case badge, structured output cards, session load/save, system message rendering |
-
-### Fine-tuned model note
-
-`sirpratama/perdata-gemma4-lora` (LoRA fine-tune of Gemma 4 4B on KUHPerdata, trained via Unsloth) exists on HuggingFace but has no `pipeline_tag` and no inference providers configured — it cannot be served via HF Serverless Inference API. It is showcased in the Kaggle notebook as a training artifact. The live app uses `gemma-4-31b-it` via Google AI Studio.
-
-### API key setup
-
-Only `GOOGLE_API_KEY` is required to run the app. `HF_API_KEY` is prompted by `start.sh` for completeness (notebook use) but the server starts fine without it.
-
-```bash
-cd backend && bash start.sh   # prompts for keys on first run, saves to .env
-```
+No repository license has been declared yet.
