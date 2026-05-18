@@ -16,8 +16,8 @@ lawdoc/.packages
 lawdoc/pubspec.lock
 
 # Python
-backend/__pycache__/
-backend/*.pyc
+__pycache__/
+*.pyc
 backend/venv/
 backend/.venv/
 backend/*.egg-info/
