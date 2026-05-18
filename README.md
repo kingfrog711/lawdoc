@@ -13,6 +13,22 @@ LawDoc is not an AI lawyer and does not provide official legal advice. It is a g
 
 Many Indonesians face inheritance, divorce, debt, land, and document problems without easy access to affordable legal help. The first barrier is often not court representation; it is understanding what the problem is, which institution handles it, what documents are needed, and what a realistic next step looks like.
 
+### Data behind the thesis
+
+| Signal | Data | Why it matters for LawDoc |
+|---|---:|---|
+| Poverty and affordability | Indonesia had **25.22 million** people living in poverty in March 2024, or **9.03%** of the population. Rural poverty was higher at **11.79%**. | A large group of people cannot treat private legal help as the default first step. |
+| Legal-aid coverage | BPHN reported **619** accredited legal-aid providers for 2022-2024, but only **279 of 514** districts/cities had a provider. | Even free legal aid is unevenly distributed, so users need early guidance before they find a real office. |
+| Civil justice access | The World Justice Project 2024 index gives Indonesia a **Civil Justice score of 0.47** and ranks it **92 of 142** globally for that factor. | Civil justice is not easy to access or navigate for ordinary users. |
+| Legal capability gap | Indonesia's 2019 access-to-justice data found that **24%** of people with legal problems did not know the means or procedures to resolve them; **53%** did not know free legal aid exists; **64%** did not use legal aid. | The core gap is educational: people need to understand the process before they can act. |
+
+Legal-aid geographic coverage, based on BPHN's 2022-2024 figures:
+
+```text
+Districts/cities with a legal-aid provider      279 / 514  [###########---------] 54%
+Districts/cities without a listed provider      235 / 514  [#########-----------] 46%
+```
+
 LawDoc turns a legal question or uploaded document into:
 
 - A plain-language explanation of the user's situation.
@@ -21,6 +37,8 @@ LawDoc turns a legal question or uploaded document into:
 - Step-by-step next actions.
 - A realistic outcome and timeline.
 - A referral recommendation when the case is too complex for self-guided triage.
+
+Sources: [BPS poverty release, March 2024](https://www.bps.go.id/en/pressrelease/2024/07/01/2370/persentase-penduduk-miskin-maret-2024-turun-menjadi-9-03-persen-.html), [BPHN/Peradi legal-aid provider coverage](https://bphn.go.id/publikasi/berita/2022122206241477/perluas-akses-bantuan-hukum-bphn-tanda-tangani-perjanjian-kerjasama-dengan-peradi), [World Justice Project Rule of Law Index 2024](https://worldjusticeproject.org/rule-of-law-index/downloads/WJPIndex2024.pdf), and [IJRS Legal Needs Survey in Indonesia 2019](https://ijrs.or.id/wp-content/uploads/2021/01/Legal-Need-Survey-ENG_R4.pdf).
 
 ## Current Status
 
