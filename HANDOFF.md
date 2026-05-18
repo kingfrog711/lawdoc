@@ -1,121 +1,131 @@
 # LawDoc — Session Handoff Report
-**Date:** 2026-05-19  
-**Branch:** main  
+**Date:** 2026-05-19
+**Branch:** feat/rafi
 **Project:** LawDoc — Indonesian civil law consultation app (Flutter + FastAPI)
 
 ---
 
-## What Was Done This Session
+## TL;DR
 
-Migrated the AI backend from **Google AI Studio (gemma-4-31b-it)** to a custom HuggingFace LoRA fine-tune: **`sirpratama/perdata-gemma4-lora-v2`** (Gemma 4 4B, trained on KUHPerdata data).
+- AI model is now the custom HF LoRA fine-tune `sirpratama/perdata-gemma4-lora-v2` (Gemma 4 E4B + KUHPerdata data).
+- **Hosting moved off HF Inference Endpoints → Modal** because Gemma 4 isn't in HF's Catalog yet (vLLM/TGI engines are locked for it) and the Custom-task toolkit is incompatible with the transformers version Gemma 4 requires.
+- Modal runs vLLM in our own container — no catalog gating, scales to zero between requests.
 
 ---
 
-## Files Changed
+## What's in the repo now
+
+### `modal_app.py` (new, project root)
+Modal app definition. Runs `vllm serve unsloth/gemma-4-E4B-it --enable-lora --lora-modules perdata-lora=sirpratama/perdata-gemma4-lora-v2` on an L4 GPU, OpenAI-compatible API on port 8000. Scales to zero after 5 min idle.
 
 ### `backend/main.py`
-- Replaced `google-generativeai` with `huggingface_hub.InferenceClient`
-- `_call_gemini()` → `_call_hf()` — calls `HF_ENDPOINT_URL` (dedicated endpoint) or falls back to model ID
-- `/tanya` endpoint now uses `_call_hf` instead of `genai.GenerativeModel`
-- `/ocr-explain` now hybrid: **Step 1** Google `gemini-1.5-flash` extracts text from image → **Step 2** HF model does legal analysis
-- `GOOGLE_API_KEY` kept but only used by `/ocr-explain` image step
-- Version bumped to `2.1.0`
-
-### `backend/requirements.txt`
-- Added `huggingface_hub>=0.24.0`
-- Kept `google-generativeai==0.8.3` (for OCR only)
+- `_call_hf()` rewritten: when `HF_ENDPOINT_URL` is set, builds an `InferenceClient(base_url=..., token=...)` and passes `model=HF_LORA_ADAPTER_NAME` to `chat_completion()` so vLLM routes to the LoRA adapter.
+- New env var `HF_LORA_ADAPTER_NAME` (default `perdata-lora`). Must match `LORA_NAME` in `modal_app.py`.
+- Fallback path (no `HF_ENDPOINT_URL`) tries HF serverless by model ID — almost certainly fails for a private custom LoRA, kept only as a "code still runs" safety net.
 
 ### `backend/.env.example`
-```
-HF_API_KEY=your_huggingface_token_here
-HF_ENDPOINT_URL=                          # paste endpoint URL here after deployment
-GOOGLE_API_KEY=your_google_key_here       # optional, only for /ocr-explain
-```
+Three keys:
+- `HF_API_KEY` — required; HF token with read access to the private LoRA repo.
+- `HF_ENDPOINT_URL` — paste the Modal URL after deploy.
+- `HF_LORA_ADAPTER_NAME` — defaults to `perdata-lora`.
+- `GOOGLE_API_KEY` — optional, only for `/ocr-explain` image OCR.
 
-### `backend/setup.sh`
-Updated to prompt for HF token (required), HF endpoint URL (recommended), Google key (optional).
-
-### `hf_handler/handler.py` ← uploaded to HF model repo
-Custom HuggingFace Inference Endpoint handler. Key details:
-- Base model: `unsloth/gemma-4-e4b-it-unsloth-bnb-4bit`
-- Loads LoRA adapter from `path` using PEFT
-- **Monkey-patches** `transformers.tokenization_utils_base._set_model_specific_special_tokens` to fix Gemma 4 tokenizer bug (`extra_special_tokens` list vs dict)
-- Returns OpenAI-compatible response format for `InferenceClient.chat_completion`
-
-### `hf_handler/requirements.txt` ← uploaded to HF model repo
-```
-transformers>=4.52.0
-peft>=0.10.0
-bitsandbytes>=0.43.0
-accelerate>=0.27.0
-```
+### `hf_handler/` (untouched, stale)
+Custom HF Inference Endpoint handler from the previous attempt. **No longer used.** Keeping it for now in case we ever need to revisit. Delete once Modal is verified end-to-end.
 
 ---
 
-## HuggingFace Endpoint Status
+## What you need to do (in order)
 
-**Model repo:** `sirpratama/perdata-gemma4-lora-v2`  
-**Deployment config:**
-- Cloud: Google Cloud Platform
-- Hardware: Nvidia T4 · 1 GPU · 16 GB VRAM · $0.50/h
-- Region: us-east4
-- Authentication: Private (uses HF token)
-- Scale to Zero: enabled (after 1 hour idle)
-- Task: Custom (uses `handler.py`)
+1. **Install Modal**
+   ```
+   pip install modal
+   modal setup       # one-time browser auth
+   ```
 
-**Deployment was in progress at end of session.** Previous attempts failed with:
-1. Missing `handler.py` → fixed by creating custom handler
-2. Tokenizer `extra_special_tokens` list/dict bug → fixed with monkey-patch in handler.py
-3. `gemma4` architecture not recognized → fixed by pinning `transformers>=4.52.0` in HF repo requirements.txt
-4. `is_tf_available` import error (caused by git HEAD transformers) → fixed by switching from `git+https://...` back to `>=4.52.0` PyPI release
+2. **Create the HF secret on Modal**
+   ```
+   modal secret create huggingface-secret HF_TOKEN=hf_xxxxxxxxxxxx
+   ```
+   The token must have READ access to `sirpratama/perdata-gemma4-lora-v2` (it's private). Public access to `unsloth/gemma-4-E4B-it` requires no auth but the same token works.
 
-**Next step:** Confirm endpoint starts successfully. If it does, copy the endpoint URL and add to `backend/.env`:
-```
-HF_ENDPOINT_URL=https://your-endpoint-id.us-east4.gcp.endpoints.huggingface.cloud
-```
+3. **Deploy**
+   ```
+   modal deploy modal_app.py
+   ```
+   First deploy builds the image (~5 min). First request triggers cold start (~3–8 min: download base ~8 GB + adapter, load on GPU, start server). Subsequent requests reuse the warm container until the 5-min idle timeout.
+
+4. **Get the URL**
+   Modal prints something like `https://your-username--lawdoc-vllm-serve.modal.run`. Copy it.
+
+5. **Wire it into the backend**
+   In `backend/.env`:
+   ```
+   HF_ENDPOINT_URL=https://your-username--lawdoc-vllm-serve.modal.run
+   ```
+   Leave `HF_LORA_ADAPTER_NAME=perdata-lora` (default).
+
+6. **Test**
+   ```
+   cd backend && bash start.sh
+   curl http://localhost:8000/health
+   # Then exercise /consult or /tanya from the Flutter app
+   ```
+   First call after deploy will be slow (cold start). Subsequent calls fast.
 
 ---
 
-## If Endpoint Still Fails
+## Why Modal instead of HF Inference Endpoints
 
-Check the logs for the new error. Common next issues:
-- **OOM / out of memory** → T4 has 16 GB, model needs ~5-6 GB in 4-bit, should be fine
-- **`gemma4` still not recognized** → `transformers>=4.52.0` may need to be bumped to `>=4.53.0`
-- **PEFT load error** → check if `adapter_config.json` base model path is accessible from HF hub
-- **Slow cold start** → normal, T4 takes 3-8 minutes to load a 4B model on first request after scale-to-zero
+The previous session tried to deploy via HF Endpoints. Found three hard blockers:
+
+1. **HF's Custom-task container ships with `huggingface_inference_toolkit` that does `from transformers.file_utils import is_tf_available`.** This import path was removed in modern transformers. Gemma 4 requires a modern transformers. Incompatible — the toolkit crashes before our `handler.py` even loads.
+
+2. **HF's "streamlined" engines (vLLM, TGI, SGLang) only work for Catalog-verified models.** Gemma 4 is not in HF's Catalog as of 2026-05. Neither `google/gemma-4-E4B-it` nor any unsloth variant. So vLLM stays grayed out in the UI.
+
+3. **Net effect:** every Gemma 4 deploy path on HF Endpoints is closed for now.
+
+Modal sidesteps all of this — we run our own vLLM container, no catalog gating, no toolkit. Cost-wise, scale-to-zero means we only pay while the model is actively serving, which is ideal for an MVP/demo.
 
 ---
 
-## Backend Architecture Summary
+## Backend Architecture (unchanged)
 
 ```
 Flutter app
     └── AiService.consult() → POST /consult
 Backend (FastAPI, port 8000)
     ├── /consult  — stateful (extracting → confirming → consulting state machine)
-    │     └── _call_hf() → InferenceClient → HF Endpoint → perdata-gemma4-lora-v2
+    │     └── _call_hf() → InferenceClient → Modal vLLM endpoint → perdata-lora adapter
     ├── /tanya    — legacy simple Q&A → same _call_hf()
     ├── /ocr-explain — hybrid: Google gemini-1.5-flash (OCR) → _call_hf (legal analysis)
     └── /health   — returns model name + version
 ```
 
-Session state is managed **client-side** in Flutter (`SessionService` → `lawdoc_session.json`). Every `/consult` request includes full context + history.
+Session state remains client-side in Flutter (`SessionService` → `lawdoc_session.json`).
 
 ---
 
-## Key Env Variables
+## Potential issues to watch on first deploy
 
-| Variable | Used by | Required? |
+| Symptom | Likely cause | Fix |
 |---|---|---|
-| `HF_API_KEY` | `/consult`, `/tanya`, `/ocr-explain` | Yes |
-| `HF_ENDPOINT_URL` | All HF calls (overrides model ID) | Strongly recommended |
-| `GOOGLE_API_KEY` | `/ocr-explain` image step only | Optional |
+| `gemma4` architecture not recognized in vLLM logs | vLLM version too old | Bump `vllm>=0.7.0` in modal_app.py to a newer pin (e.g. `>=0.8.0`) |
+| LoRA fails to load — base mismatch | Adapter's `base_model_name_or_path` references unsloth bnb-4bit, but we use unsloth fp16 | Pass `base_model_name` override via `--lora-modules '{"name":"perdata-lora","path":"...","base_model_name":"unsloth/gemma-4-E4B-it"}'` |
+| OOM on L4 (24 GB) | KV cache too large for context window | Lower `MAX_MODEL_LEN` in modal_app.py |
+| HF token rejected | Secret name mismatch or token scope | Verify `modal secret list` shows `huggingface-secret` and the token has read access to the LoRA repo |
+| Cold start >15 min | Network / HF download slow | Bump `STARTUP_TIMEOUT` in modal_app.py |
 
 ---
 
-## How to Start the Backend
+## Teammate parallel work
 
-```bash
-cd backend
-bash start.sh          # prompts for keys on first run, starts uvicorn on :8000
-```
+Backend + Flutter deployment can proceed without waiting for the model URL:
+- Backend deploys with a placeholder `HF_ENDPOINT_URL`; only `/consult` and `/tanya` will 500. `/health` still works.
+- Once the Modal URL is live, update the env var in the backend's hosting platform — no code change.
+
+---
+
+## Minor inconsistency noted
+
+`backend/main.py:31` declares `FastAPI(title="LawDoc API", version="2.0.0")` but `/health` returns `"version": "2.1.0"`. Worth bumping the FastAPI constructor to match (or to `2.2.0` for the Modal migration).

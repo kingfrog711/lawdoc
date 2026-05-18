@@ -21,7 +21,8 @@ import google.generativeai as genai  # kept for /ocr-explain image extraction on
 load_dotenv()
 
 HF_API_KEY = os.getenv("HF_API_KEY", "")
-HF_ENDPOINT_URL = os.getenv("HF_ENDPOINT_URL", "")  # dedicated endpoint URL (recommended)
+HF_ENDPOINT_URL = os.getenv("HF_ENDPOINT_URL", "")  # OpenAI-compat endpoint (Modal/vLLM)
+HF_LORA_ADAPTER_NAME = os.getenv("HF_LORA_ADAPTER_NAME", "perdata-lora")  # vLLM --lora-modules name
 CONSULT_MODEL = "sirpratama/perdata-gemma4-lora-v2"
 
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "")  # only used by /ocr-explain image step
@@ -116,21 +117,29 @@ class LegalResponse(BaseModel):
 # ── HuggingFace inference helper ──────────────────────────────────────────────
 
 async def _call_hf(system: str, history: list[HistoryMessage], message: str) -> str:
-    if not HF_API_KEY:
-        raise HTTPException(status_code=500, detail="HF_API_KEY not configured in .env")
-
     def _sync_call() -> str:
-        # Use dedicated endpoint URL if configured, otherwise call model by ID
-        target = HF_ENDPOINT_URL if HF_ENDPOINT_URL else CONSULT_MODEL
-        client = InferenceClient(model=target, token=HF_API_KEY)
-
         messages: list[dict] = [{"role": "system", "content": system}]
         for msg in history:
             role = "assistant" if msg.role == "model" else msg.role
             messages.append({"role": role, "content": msg.content})
         messages.append({"role": "user", "content": message})
 
-        resp = client.chat_completion(messages=messages, max_tokens=2048, temperature=0.4)
+        if HF_ENDPOINT_URL:
+            # OpenAI-compatible endpoint (Modal/vLLM). Adapter name routes to the LoRA.
+            client = InferenceClient(base_url=HF_ENDPOINT_URL, token=HF_API_KEY or None)
+            resp = client.chat_completion(
+                messages=messages,
+                model=HF_LORA_ADAPTER_NAME,
+                max_tokens=2048,
+                temperature=0.4,
+            )
+        else:
+            # Fallback: try HF serverless inference by model ID (unlikely to work for private LoRA)
+            if not HF_API_KEY:
+                raise HTTPException(status_code=500, detail="HF_API_KEY not configured in .env")
+            client = InferenceClient(model=CONSULT_MODEL, token=HF_API_KEY)
+            resp = client.chat_completion(messages=messages, max_tokens=2048, temperature=0.4)
+
         return resp.choices[0].message.content
 
     return await asyncio.to_thread(_sync_call)
