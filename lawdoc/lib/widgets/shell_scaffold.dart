@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../l10n/strings.dart';
 import '../theme/colors.dart';
 
 class ShellScaffold extends StatelessWidget {
@@ -34,14 +35,14 @@ class ShellScaffold extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _NavItem(icon: Icons.home_outlined, label: 'Beranda', index: 0, current: currentIndex,
+                _NavItem(icon: Icons.home_outlined, label: t('Beranda', 'Home'), index: 0, current: currentIndex,
                     onTap: () => context.go('/home')),
-                _NavItem(icon: Icons.search, label: 'Cari', index: 1, current: currentIndex,
+                _NavItem(icon: Icons.search, label: t('Cari', 'Find'), index: 1, current: currentIndex,
                     onTap: () => context.go('/lawyers')),
                 _TanyaAiButton(active: currentIndex == 2, onTap: () => context.go('/chat')),
-                _NavItem(icon: Icons.menu_book_outlined, label: 'Belajar', index: 3, current: currentIndex,
+                _NavItem(icon: Icons.menu_book_outlined, label: t('Belajar', 'Learn'), index: 3, current: currentIndex,
                     onTap: () => context.go('/knowledge')),
-                _NavItem(icon: Icons.person_outline, label: 'Saya', index: 4, current: currentIndex,
+                _NavItem(icon: Icons.person_outline, label: t('Saya', 'Me'), index: 4, current: currentIndex,
                     onTap: () {}),
               ],
             ),
@@ -104,7 +105,7 @@ class _TanyaAiButton extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              width: 44, height: 44,
+              width: 42, height: 42,
               decoration: BoxDecoration(
                 color: active ? AppColors.gold : AppColors.navyDeep,
                 shape: BoxShape.circle,
@@ -118,7 +119,7 @@ class _TanyaAiButton extends StatelessWidget {
               child: const Icon(Icons.auto_awesome, size: 20, color: AppColors.white),
             ),
             const SizedBox(height: 2),
-            Text('Tanya AI',
+            Text(t('Tanya AI', 'Ask AI'),
                 style: GoogleFonts.inter(
                     fontSize: 10,
                     color: active ? AppColors.gold : AppColors.bottomNavActive,

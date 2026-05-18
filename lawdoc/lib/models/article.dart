@@ -20,6 +20,7 @@ class Article {
   final String difficulty;
   final String preview;
   final String content;
+  final List<String> sources;
 
   const Article({
     required this.id,
@@ -29,6 +30,7 @@ class Article {
     required this.difficulty,
     required this.preview,
     required this.content,
+    this.sources = const [],
   });
 }
 

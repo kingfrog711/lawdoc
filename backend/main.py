@@ -9,9 +9,10 @@ import asyncio
 import os
 import json
 import re
+import tempfile
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
@@ -28,6 +29,14 @@ CONSULT_MODEL = "sirpratama/perdata-gemma4-lora-v2"
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "")  # only used by /ocr-explain image step
 if GOOGLE_API_KEY:
     genai.configure(api_key=GOOGLE_API_KEY)
+
+LLAMA_CLOUD_API_KEY = os.getenv("LLAMA_CLOUD_API_KEY", "")  # for /parse-document
+MAX_UPLOAD_BYTES = 15 * 1024 * 1024  # 15 MB
+PARSE_ALLOWED_EXTS = {
+    ".pdf", ".docx", ".doc", ".pptx", ".ppt", ".xlsx", ".xls",
+    ".txt", ".md", ".rtf", ".html", ".htm", ".odt", ".epub",
+    ".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif", ".tiff",
+}
 
 app = FastAPI(title="LawDoc API", version="2.0.0")
 app.add_middleware(
@@ -498,6 +507,67 @@ async def tanya(req: TanyaRequest):
         raise HTTPException(status_code=500, detail=f"Model returned unparseable output: {e}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── /parse-document — LlamaParse-backed document → text ──────────────────────
+
+async def _llamaparse_to_text(file_bytes: bytes, filename: str) -> str:
+    """Parse a document via LlamaParse and return concatenated markdown text."""
+    from llama_cloud_services import LlamaParse  # lazy import — heavy deps
+
+    suffix = os.path.splitext(filename)[1] or ".pdf"
+    fd, tmp_path = tempfile.mkstemp(suffix=suffix)
+    try:
+        with os.fdopen(fd, "wb") as f:
+            f.write(file_bytes)
+
+        parser = LlamaParse(
+            api_key=LLAMA_CLOUD_API_KEY,
+            result_type="markdown",
+            verbose=False,
+        )
+        documents = await parser.aload_data(tmp_path)
+        return "\n\n".join(doc.text for doc in documents if doc.text).strip()
+    finally:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+
+
+@app.post("/parse-document")
+async def parse_document(file: UploadFile = File(...)):
+    """
+    Parse an uploaded document (PDF, DOCX, image, etc.) into structured text via LlamaParse.
+    Returns: {"text": "...", "filename": "...", "char_count": int}
+    """
+    if not LLAMA_CLOUD_API_KEY:
+        raise HTTPException(status_code=500, detail="LLAMA_CLOUD_API_KEY not configured in .env")
+
+    filename = file.filename or "document"
+    ext = os.path.splitext(filename)[1].lower()
+    if ext and ext not in PARSE_ALLOWED_EXTS:
+        raise HTTPException(status_code=415, detail=f"Unsupported file type: {ext}")
+
+    contents = await file.read()
+    if not contents:
+        raise HTTPException(status_code=400, detail="Empty file upload")
+    if len(contents) > MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File too large (max {MAX_UPLOAD_BYTES // 1024 // 1024} MB)",
+        )
+
+    try:
+        text = await _llamaparse_to_text(contents, filename)
+    except Exception as e:
+        print(f"[parse-document] LlamaParse error: {e}")
+        raise HTTPException(status_code=502, detail=f"Document parse failed: {e}")
+
+    if not text:
+        raise HTTPException(status_code=422, detail="Document parsed but no text was extracted")
+
+    return {"text": text, "filename": filename, "char_count": len(text)}
 
 
 @app.post("/ocr-explain")

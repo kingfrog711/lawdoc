@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
+import '../../l10n/strings.dart';
 import '../../theme/colors.dart';
 import '../../widgets/lang_toggle.dart';
 
@@ -23,7 +24,7 @@ class HomeScreen extends StatelessWidget {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Selamat siang,',
+                      Text(t('Selamat siang,', 'Good afternoon,'),
                           style: GoogleFonts.inter(fontSize: 13, color: AppColors.textSecondary)),
                       Text('Pak Budi',
                           style: GoogleFonts.inter(
@@ -72,7 +73,7 @@ class HomeScreen extends StatelessWidget {
                               children: [
                                 const Icon(Icons.auto_awesome, size: 10, color: AppColors.gold),
                                 const SizedBox(width: 4),
-                                Text('TANYA DULU · AI',
+                                Text(t('TANYA DULU · AI', 'ASK FIRST · AI'),
                                     style: GoogleFonts.inter(
                                         fontSize: 9, fontWeight: FontWeight.w700,
                                         color: AppColors.gold, letterSpacing: 0.8)),
@@ -82,12 +83,16 @@ class HomeScreen extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 16),
-                      Text('Punya masalah hukum?\nCerita dulu, gratis.',
+                      Text(
+                          t('Punya masalah hukum?\nCerita dulu, gratis.',
+                              'Got a legal issue?\nTalk first, free.'),
                           style: GoogleFonts.playfairDisplay(
                               fontSize: 20, fontWeight: FontWeight.w700,
                               color: AppColors.white, height: 1.3)),
                       const SizedBox(height: 8),
-                      Text('AI akan bantu pahami situasi Anda dalam bahasa sederhana.',
+                      Text(
+                          t('AI akan bantu pahami situasi Anda dalam bahasa sederhana.',
+                              'AI will help you understand your situation in plain language.'),
                           style: GoogleFonts.inter(
                               fontSize: 13, color: AppColors.textOnDarkMuted)),
                       const SizedBox(height: 20),
@@ -101,7 +106,7 @@ class HomeScreen extends StatelessWidget {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text('Mulai bicara',
+                            Text(t('Mulai bicara', 'Start talking'),
                                 style: GoogleFonts.inter(
                                     fontSize: 13, fontWeight: FontWeight.w600,
                                     color: AppColors.white)),
@@ -132,11 +137,13 @@ class HomeScreen extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Bantuan hukum gratis (LBH)',
+                          Text(t('Bantuan hukum gratis (LBH)', 'Free legal aid (LBH)'),
                               style: GoogleFonts.inter(
                                   fontSize: 13, fontWeight: FontWeight.w600,
                                   color: AppColors.textPrimary)),
-                          Text('Tersedia untuk Anda yang memenuhi syarat penghasilan.',
+                          Text(
+                              t('Tersedia untuk Anda yang memenuhi syarat penghasilan.',
+                                  'Available if you meet the income requirements.'),
                               style: GoogleFonts.inter(
                                   fontSize: 11, color: AppColors.textSecondary)),
                         ],
@@ -156,13 +163,13 @@ class HomeScreen extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Kategori kasus',
+                  Text(t('Kategori kasus', 'Case categories'),
                       style: GoogleFonts.inter(
                           fontSize: 16, fontWeight: FontWeight.w700,
                           color: AppColors.textPrimary)),
                   TextButton(
                     onPressed: () {},
-                    child: Text('Lihat semua',
+                    child: Text(t('Lihat semua', 'See all'),
                         style: GoogleFonts.inter(fontSize: 13, color: AppColors.gold)),
                   ),
                 ],
@@ -175,11 +182,11 @@ class HomeScreen extends StatelessWidget {
                 crossAxisSpacing: 12,
                 mainAxisSpacing: 12,
                 childAspectRatio: 1.6,
-                children: const [
-                  _CategoryCard(icon: Icons.favorite_border, label: 'Perceraian', sub: 'Keluarga'),
-                  _CategoryCard(icon: Icons.account_balance_wallet_outlined, label: 'Utang Piutang', sub: 'Debt'),
-                  _CategoryCard(icon: Icons.location_on_outlined, label: 'Sengketa Tanah', sub: 'Property'),
-                  _CategoryCard(icon: Icons.description_outlined, label: 'Waris', sub: 'Inheritance'),
+                children: [
+                  _CategoryCard(icon: Icons.favorite_border, label: t('Perceraian', 'Divorce'), sub: t('Keluarga', 'Family')),
+                  _CategoryCard(icon: Icons.account_balance_wallet_outlined, label: t('Utang Piutang', 'Debts'), sub: t('Keuangan', 'Finance')),
+                  _CategoryCard(icon: Icons.location_on_outlined, label: t('Sengketa Tanah', 'Land Disputes'), sub: t('Properti', 'Property')),
+                  _CategoryCard(icon: Icons.description_outlined, label: t('Waris', 'Inheritance'), sub: t('Keluarga', 'Family')),
                 ],
               ),
               const SizedBox(height: 100),

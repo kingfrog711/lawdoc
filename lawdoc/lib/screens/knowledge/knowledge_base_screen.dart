@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../data/mock_articles.dart';
+import '../../l10n/strings.dart';
 import '../../models/article.dart';
 import '../../theme/colors.dart';
 import '../../widgets/article_card.dart';
@@ -13,8 +14,20 @@ class KnowledgeBaseScreen extends StatefulWidget {
 }
 
 class _KnowledgeBaseScreenState extends State<KnowledgeBaseScreen> {
+  // Tab keys stay Indonesian for stable identity; labels go through _tabLabel.
   String _tab = 'Populer';
-  final _tabs = ['Populer', 'Perceraian', 'Waris', 'Utang', 'Tanah'];
+  final _tabKeys = const ['Populer', 'Perceraian', 'Waris', 'Utang', 'Tanah'];
+
+  String _tabLabel(String key) {
+    switch (key) {
+      case 'Populer': return t('Populer', 'Popular');
+      case 'Perceraian': return t('Perceraian', 'Divorce');
+      case 'Waris': return t('Waris', 'Inheritance');
+      case 'Utang': return t('Utang', 'Debt');
+      case 'Tanah': return t('Tanah', 'Land');
+      default: return key;
+    }
+  }
 
   List<Article> get _articles {
     if (_tab == 'Populer') return mockArticles;
@@ -36,11 +49,12 @@ class _KnowledgeBaseScreenState extends State<KnowledgeBaseScreen> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Belajar',
+            Text(t('Belajar', 'Learn'),
                 style: GoogleFonts.inter(
                     fontSize: 22, fontWeight: FontWeight.w700,
                     color: AppColors.textPrimary)),
-            Text('Bahasa sederhana, tanpa jargon hukum.',
+            Text(t('Bahasa sederhana, tanpa jargon hukum.',
+                    'Plain language, no legal jargon.'),
                 style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary)),
           ],
         ),
@@ -78,7 +92,7 @@ class _KnowledgeBaseScreenState extends State<KnowledgeBaseScreen> {
                         border: Border.all(color: AppColors.gold.withAlpha(120)),
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: Text('SERI · DASAR HUKUM',
+                      child: Text(t('SERI · DASAR HUKUM', 'SERIES · LEGAL BASICS'),
                           style: GoogleFonts.inter(
                               fontSize: 9, fontWeight: FontWeight.w700,
                               color: AppColors.gold, letterSpacing: 0.8)),
@@ -91,13 +105,21 @@ class _KnowledgeBaseScreenState extends State<KnowledgeBaseScreen> {
                     const SizedBox(height: 10),
                     Row(
                       children: [
-                        Text('${featuredSeries.totalChapters} bab',
+                        Text(
+                            t('${featuredSeries.totalChapters} bab',
+                                '${featuredSeries.totalChapters} chapters'),
                             style: GoogleFonts.inter(fontSize: 11, color: AppColors.textOnDarkMuted)),
                         const SizedBox(width: 8),
-                        Text('${featuredSeries.totalMinutes} menit',
+                        Text(
+                            t('${featuredSeries.totalMinutes} menit',
+                                '${featuredSeries.totalMinutes} min'),
                             style: GoogleFonts.inter(fontSize: 11, color: AppColors.textOnDarkMuted)),
                         const SizedBox(width: 8),
-                        Text('${featuredSeries.completedChapters} dari ${featuredSeries.totalChapters} selesai',
+                        Text(
+                            t(
+                              '${featuredSeries.completedChapters} dari ${featuredSeries.totalChapters} selesai',
+                              '${featuredSeries.completedChapters} of ${featuredSeries.totalChapters} done',
+                            ),
                             style: GoogleFonts.inter(fontSize: 11, color: AppColors.gold)),
                       ],
                     ),
@@ -124,13 +146,13 @@ class _KnowledgeBaseScreenState extends State<KnowledgeBaseScreen> {
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: _tabs.length,
+                itemCount: _tabKeys.length,
                 separatorBuilder: (_, __) => const SizedBox(width: 8),
                 itemBuilder: (context, i) {
-                  final t = _tabs[i];
-                  final active = t == _tab;
+                  final key = _tabKeys[i];
+                  final active = key == _tab;
                   return GestureDetector(
-                    onTap: () => setState(() => _tab = t),
+                    onTap: () => setState(() => _tab = key),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
@@ -141,7 +163,7 @@ class _KnowledgeBaseScreenState extends State<KnowledgeBaseScreen> {
                         ),
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      child: Text(t,
+                      child: Text(_tabLabel(key),
                           style: GoogleFonts.inter(
                               fontSize: 13, fontWeight: FontWeight.w500,
                               color: active ? AppColors.white : AppColors.textPrimary)),
@@ -155,7 +177,7 @@ class _KnowledgeBaseScreenState extends State<KnowledgeBaseScreen> {
 
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text('Artikel terbaru',
+              child: Text(t('Artikel terbaru', 'Latest articles'),
                   style: GoogleFonts.inter(
                       fontSize: 15, fontWeight: FontWeight.w700,
                       color: AppColors.textPrimary)),
@@ -229,7 +251,9 @@ class _ArticleSheet extends StatelessWidget {
                       children: [
                         const Icon(Icons.access_time, size: 14, color: AppColors.textMuted),
                         const SizedBox(width: 4),
-                        Text('${article.readMinutes} menit · ${article.difficulty}',
+                        Text(
+                            t('${article.readMinutes} menit · ${article.difficulty}',
+                                '${article.readMinutes} min · ${article.difficulty}'),
                             style: GoogleFonts.inter(fontSize: 12, color: AppColors.textMuted)),
                       ],
                     ),
@@ -237,6 +261,65 @@ class _ArticleSheet extends StatelessWidget {
                     Text(article.content,
                         style: GoogleFonts.inter(
                             fontSize: 15, color: AppColors.textPrimary, height: 1.7)),
+                    if (article.sources.isNotEmpty) ...[
+                      const SizedBox(height: 28),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: AppColors.navyDeep.withAlpha(8),
+                          border: Border(
+                            left: BorderSide(color: AppColors.gold, width: 3),
+                          ),
+                          borderRadius: const BorderRadius.only(
+                            topRight: Radius.circular(8),
+                            bottomRight: Radius.circular(8),
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(Icons.gavel_outlined,
+                                    size: 14, color: AppColors.gold),
+                                const SizedBox(width: 6),
+                                Text(
+                                  t('SUMBER HUKUM', 'LEGAL SOURCES'),
+                                  style: GoogleFonts.inter(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.navyDeep,
+                                      letterSpacing: 1),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            ...article.sources.map((s) => Padding(
+                                  padding: const EdgeInsets.only(bottom: 4),
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text('• ',
+                                          style: TextStyle(
+                                              color: AppColors.navyDeep,
+                                              fontWeight: FontWeight.w700)),
+                                      Expanded(
+                                        child: Text(
+                                          s,
+                                          style: GoogleFonts.inter(
+                                              fontSize: 12,
+                                              color: AppColors.textSecondary,
+                                              height: 1.5),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                )),
+                          ],
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 40),
                   ],
                 ),

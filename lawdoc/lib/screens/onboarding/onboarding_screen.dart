@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
+import '../../l10n/strings.dart';
 import '../../theme/colors.dart';
 import '../../widgets/lawdoc_logo.dart';
 import '../../widgets/lang_toggle.dart';
@@ -15,29 +16,38 @@ class OnboardingScreen extends StatefulWidget {
 class _OnboardingScreenState extends State<OnboardingScreen> {
   int _page = 0;
 
-  final List<_OnboardPage> _pages = const [
-    _OnboardPage(
-      tag: 'PERDATA · CIVIL LAW',
-      headline: 'Hak Anda,\ndidampingi.',
-      body: 'Bantuan hukum perdata, mudah diakses.',
-      sub: 'Konsultasi cepat dengan AI, terhubung ke LBH atau pengacara berpengalaman — tanpa biaya kejutan.',
-    ),
-    _OnboardPage(
-      tag: 'PRIVASI · PRIVACY',
-      headline: 'Rahasia Anda\naman.',
-      body: 'AI berjalan di perangkat Anda.',
-      sub: 'Percakapan hukum Anda tidak pernah meninggalkan ponsel — diproses lokal dengan Gemma 4.',
-    ),
-    _OnboardPage(
-      tag: 'AKSES · ACCESS',
-      headline: 'Pengacara\nterverifikasi.',
-      body: 'PERADI-verified, harga transparan.',
-      sub: 'Temukan pengacara berpengalaman atau dapatkan bantuan gratis melalui jaringan LBH.',
-    ),
-  ];
+  List<_OnboardPage> _buildPages() => [
+        _OnboardPage(
+          tag: 'PERDATA · CIVIL LAW',
+          headline: t('Hak Anda,\ndidampingi.', 'Your rights,\nguided.'),
+          body: t('Bantuan hukum perdata, mudah diakses.',
+              'Civil legal help, made accessible.'),
+          sub: t(
+              'Konsultasi cepat dengan AI, terhubung ke LBH atau pengacara berpengalaman — tanpa biaya kejutan.',
+              'Quick AI consultation, connected to LBH or experienced lawyers, no hidden fees.'),
+        ),
+        _OnboardPage(
+          tag: 'PRIVASI · PRIVACY',
+          headline: t('Rahasia Anda\naman.', 'Your secrets\nsafe.'),
+          body: t('AI berjalan di perangkat Anda.', 'AI runs on your device.'),
+          sub: t(
+              'Percakapan hukum Anda tidak pernah meninggalkan ponsel — diproses lokal dengan Gemma 4.',
+              'Your legal conversations never leave your phone, processed locally with Gemma 4.'),
+        ),
+        _OnboardPage(
+          tag: 'AKSES · ACCESS',
+          headline: t('Pengacara\nterverifikasi.', 'Verified\nlawyers.'),
+          body: t('PERADI-verified, harga transparan.',
+              'PERADI-verified, transparent pricing.'),
+          sub: t(
+              'Temukan pengacara berpengalaman atau dapatkan bantuan gratis melalui jaringan LBH.',
+              'Find experienced lawyers or get free help through the LBH network.'),
+        ),
+      ];
 
   @override
   Widget build(BuildContext context) {
+    final pages = _buildPages();
     return Scaffold(
       backgroundColor: AppColors.cream,
       body: SafeArea(
@@ -55,9 +65,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ),
             Expanded(
               child: PageView.builder(
-                itemCount: _pages.length,
+                itemCount: pages.length,
                 onPageChanged: (i) => setState(() => _page = i),
-                itemBuilder: (context, i) => _PageContent(page: _pages[i]),
+                itemBuilder: (context, i) => _PageContent(page: pages[i]),
               ),
             ),
             Padding(
@@ -66,20 +76,20 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.start,
-                    children: List.generate(_pages.length, (i) => _Dot(active: i == _page)),
+                    children: List.generate(pages.length, (i) => _Dot(active: i == _page)),
                   ),
                   const SizedBox(height: 24),
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: () => context.go('/home'),
-                      child: const Text('Mulai konsultasi gratis →'),
+                      child: Text(t('Mulai konsultasi gratis →', 'Start free consultation →')),
                     ),
                   ),
                   const SizedBox(height: 12),
                   TextButton(
                     onPressed: () => context.go('/home'),
-                    child: Text('Saya sudah punya akun',
+                    child: Text(t('Saya sudah punya akun', 'I already have an account'),
                         style: GoogleFonts.inter(
                             fontSize: 14, color: AppColors.textSecondary,
                             fontWeight: FontWeight.w500)),
