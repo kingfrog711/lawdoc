@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../l10n/strings.dart';
 import '../../theme/colors.dart';
 
 class ProBonoScreen extends StatefulWidget {
@@ -14,12 +15,24 @@ class _ProBonoScreenState extends State<ProBonoScreen> {
   final _incomeController = TextEditingController();
   bool _submitted = false;
 
-  final _checks = [
-    _Check(text: 'Penghasilan keluarga di bawah UMR daerah', checked: true),
-    _Check(text: 'Memiliki KTP / dokumen identitas', checked: true),
-    _Check(text: 'Kasus berkategori perdata (bukan pidana)', checked: true),
-    _Check(text: 'Belum didampingi pengacara lain', checked: false),
-  ];
+  List<_Check> _buildChecks() => [
+        _Check(
+            text: t('Penghasilan keluarga di bawah UMR daerah',
+                'Family income below local minimum wage'),
+            checked: true),
+        _Check(
+            text: t('Memiliki KTP / dokumen identitas',
+                'Has KTP / identity document'),
+            checked: true),
+        _Check(
+            text: t('Kasus berkategori perdata (bukan pidana)',
+                'Case is civil (not criminal)'),
+            checked: true),
+        _Check(
+            text: t('Belum didampingi pengacara lain',
+                'No other lawyer assigned yet'),
+            checked: false),
+      ];
 
   @override
   Widget build(BuildContext context) {
@@ -27,13 +40,13 @@ class _ProBonoScreenState extends State<ProBonoScreen> {
       backgroundColor: AppColors.cream,
       appBar: AppBar(
         leading: const BackButton(color: AppColors.navyDeep),
-        title: Text('Bantuan hukum gratis',
+        title: Text(t('Bantuan hukum gratis', 'Free legal aid'),
             style: GoogleFonts.inter(
                 fontSize: 16, fontWeight: FontWeight.w600,
                 color: AppColors.textPrimary)),
       ),
       body: _submitted ? _SuccessView() : _FormView(
-        checks: _checks,
+        checks: _buildChecks(),
         caseController: _caseController,
         incomeController: _incomeController,
         onSubmit: () => setState(() => _submitted = true),
@@ -74,13 +87,18 @@ class _FormView extends StatelessWidget {
               children: [
                 const Icon(Icons.shield_outlined, size: 28, color: AppColors.gold),
                 const SizedBox(height: 12),
-                Text('Hukum tidak boleh\njadi privilese.',
+                Text(
+                    t('Hukum tidak boleh\njadi privilese.',
+                        'Law should not be\na privilege.'),
                     style: GoogleFonts.playfairDisplay(
                         fontSize: 22, fontWeight: FontWeight.w700,
                         color: AppColors.gold, height: 1.2)),
                 const SizedBox(height: 8),
                 Text(
-                  'LawDoc bermitra dengan LBH dan pengacara pro bono untuk mendampingi Anda — tanpa biaya.',
+                  t(
+                    'LawDoc bermitra dengan LBH dan pengacara pro bono untuk mendampingi Anda — tanpa biaya.',
+                    'LawDoc partners with LBH and pro bono lawyers to support you, free of charge.',
+                  ),
                   style: GoogleFonts.inter(
                       fontSize: 13, color: AppColors.probonoText, height: 1.5),
                 ),
@@ -89,7 +107,7 @@ class _FormView extends StatelessWidget {
           ),
           const SizedBox(height: 24),
 
-          Text('Syarat kelayakan',
+          Text(t('Syarat kelayakan', 'Eligibility'),
               style: GoogleFonts.inter(
                   fontSize: 15, fontWeight: FontWeight.w700,
                   color: AppColors.textPrimary)),
@@ -121,24 +139,25 @@ class _FormView extends StatelessWidget {
           ),
 
           const SizedBox(height: 20),
-          Text('Lengkapi data',
+          Text(t('Lengkapi data', 'Fill in your details'),
               style: GoogleFonts.inter(
                   fontSize: 15, fontWeight: FontWeight.w700,
                   color: AppColors.textPrimary)),
           const SizedBox(height: 12),
 
-          Text('Jenis kasus',
+          Text(t('Jenis kasus', 'Case type'),
               style: GoogleFonts.inter(
                   fontSize: 13, fontWeight: FontWeight.w500,
                   color: AppColors.textPrimary)),
           const SizedBox(height: 6),
           TextField(
             controller: caseController,
-            decoration: const InputDecoration(hintText: 'Sengketa tanah waris'),
+            decoration: InputDecoration(
+                hintText: t('Sengketa tanah waris', 'Inheritance land dispute')),
           ),
           const SizedBox(height: 14),
 
-          Text('Penghasilan / bulan',
+          Text(t('Penghasilan / bulan', 'Income / month'),
               style: GoogleFonts.inter(
                   fontSize: 13, fontWeight: FontWeight.w500,
                   color: AppColors.textPrimary)),
@@ -154,7 +173,7 @@ class _FormView extends StatelessWidget {
             width: double.infinity,
             child: ElevatedButton(
               onPressed: onSubmit,
-              child: const Text('Kirim permohonan →'),
+              child: Text(t('Kirim permohonan →', 'Submit application →')),
             ),
           ),
           const SizedBox(height: 40),
@@ -179,13 +198,16 @@ class _SuccessView extends StatelessWidget {
               child: const Icon(Icons.check, size: 36, color: AppColors.verified),
             ),
             const SizedBox(height: 20),
-            Text('Permohonan terkirim',
+            Text(t('Permohonan terkirim', 'Application submitted'),
                 style: GoogleFonts.playfairDisplay(
                     fontSize: 24, fontWeight: FontWeight.w700,
                     color: AppColors.textPrimary)),
             const SizedBox(height: 12),
             Text(
-              'Tim LBH akan menghubungi Anda dalam 1–3 hari kerja untuk verifikasi kelayakan dan penunjukan pengacara.',
+              t(
+                'Tim LBH akan menghubungi Anda dalam 1–3 hari kerja untuk verifikasi kelayakan dan penunjukan pengacara.',
+                'The LBH team will contact you within 1–3 business days to verify eligibility and assign a lawyer.',
+              ),
               style: GoogleFonts.inter(fontSize: 14, color: AppColors.textSecondary, height: 1.6),
               textAlign: TextAlign.center,
             ),

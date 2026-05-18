@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'l10n/strings.dart';
 import 'screens/onboarding/onboarding_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'screens/chat/tanya_dulu_screen.dart';
@@ -40,11 +41,14 @@ class LawDocApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp.router(
-      title: 'LawDoc',
-      theme: AppTheme.light,
-      routerConfig: _router,
-      debugShowCheckedModeBanner: false,
+    return ValueListenableBuilder<bool>(
+      valueListenable: langIsId,
+      builder: (context, _, __) => MaterialApp.router(
+        title: 'LawDoc',
+        theme: AppTheme.light,
+        routerConfig: _router,
+        debugShowCheckedModeBanner: false,
+      ),
     );
   }
 }

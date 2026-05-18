@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import '../../data/mock_lawyers.dart';
+import '../../l10n/strings.dart';
 import '../../models/lawyer.dart';
 import '../../theme/colors.dart';
 import '../../widgets/lang_toggle.dart';
@@ -15,8 +16,21 @@ class BrowseLawyersScreen extends StatefulWidget {
 }
 
 class _BrowseLawyersScreenState extends State<BrowseLawyersScreen> {
+  // Filter is stored by key (Indonesian-stable). Display labels go through t().
   String _filter = 'Semua';
-  final _filters = ['Semua', 'Pro bono', 'Perceraian', 'Waris', 'Tanah', 'Utang'];
+  final _filterKeys = const ['Semua', 'Pro bono', 'Perceraian', 'Waris', 'Tanah', 'Utang'];
+
+  String _filterLabel(String key) {
+    switch (key) {
+      case 'Semua': return t('Semua', 'All');
+      case 'Pro bono': return t('Pro bono', 'Pro bono');
+      case 'Perceraian': return t('Perceraian', 'Divorce');
+      case 'Waris': return t('Waris', 'Inheritance');
+      case 'Tanah': return t('Tanah', 'Land');
+      case 'Utang': return t('Utang', 'Debt');
+      default: return key;
+    }
+  }
 
   List<Lawyer> get _filtered {
     if (_filter == 'Semua') return mockLawyers;
@@ -29,7 +43,7 @@ class _BrowseLawyersScreenState extends State<BrowseLawyersScreen> {
     return Scaffold(
       backgroundColor: AppColors.cream,
       appBar: AppBar(
-        title: Text('Cari pengacara',
+        title: Text(t('Cari pengacara', 'Find a lawyer'),
             style: GoogleFonts.inter(
                 fontSize: 18, fontWeight: FontWeight.w700,
                 color: AppColors.textPrimary)),
@@ -40,10 +54,11 @@ class _BrowseLawyersScreenState extends State<BrowseLawyersScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: TextField(
-              decoration: const InputDecoration(
-                hintText: 'Cari nama atau spesialisasi...',
-                prefixIcon: Icon(Icons.search, color: AppColors.textMuted),
-                suffixIcon: Icon(Icons.mic_none, color: AppColors.textMuted),
+              decoration: InputDecoration(
+                hintText: t('Cari nama atau spesialisasi...',
+                    'Search by name or specialization...'),
+                prefixIcon: const Icon(Icons.search, color: AppColors.textMuted),
+                suffixIcon: const Icon(Icons.mic_none, color: AppColors.textMuted),
               ),
               onChanged: (v) {},
             ),
@@ -54,10 +69,10 @@ class _BrowseLawyersScreenState extends State<BrowseLawyersScreen> {
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: _filters.length,
+              itemCount: _filterKeys.length,
               separatorBuilder: (_, __) => const SizedBox(width: 8),
               itemBuilder: (context, i) {
-                final f = _filters[i];
+                final f = _filterKeys[i];
                 final active = f == _filter;
                 return GestureDetector(
                   onTap: () => setState(() => _filter = f),
@@ -71,7 +86,7 @@ class _BrowseLawyersScreenState extends State<BrowseLawyersScreen> {
                       ),
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: Text(f,
+                    child: Text(_filterLabel(f),
                         style: GoogleFonts.inter(
                             fontSize: 13, fontWeight: FontWeight.w500,
                             color: active ? AppColors.white : AppColors.textPrimary)),
@@ -86,13 +101,15 @@ class _BrowseLawyersScreenState extends State<BrowseLawyersScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('${_filtered.length} pengacara cocok',
+                Text(
+                    t('${_filtered.length} pengacara cocok',
+                        '${_filtered.length} lawyers match'),
                     style: GoogleFonts.inter(fontSize: 13, color: AppColors.textSecondary)),
                 Row(
                   children: [
                     const Icon(Icons.sort, size: 16, color: AppColors.textSecondary),
                     const SizedBox(width: 4),
-                    Text('Urutkan',
+                    Text(t('Urutkan', 'Sort'),
                         style: GoogleFonts.inter(fontSize: 13, color: AppColors.textSecondary)),
                   ],
                 ),

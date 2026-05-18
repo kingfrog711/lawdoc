@@ -1,38 +1,47 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../l10n/strings.dart';
 import '../theme/colors.dart';
 
-class LangToggle extends StatefulWidget {
+class LangToggle extends StatelessWidget {
   final bool dark;
   const LangToggle({super.key, this.dark = false});
 
   @override
-  State<LangToggle> createState() => _LangToggleState();
-}
-
-class _LangToggleState extends State<LangToggle> {
-  bool _isId = true;
-
-  @override
   Widget build(BuildContext context) {
-    final borderColor = widget.dark ? AppColors.white.withAlpha(80) : AppColors.navyDeep.withAlpha(60);
-    final activeText = widget.dark ? AppColors.navyDeep : AppColors.white;
-    final inactiveText = widget.dark ? AppColors.white.withAlpha(180) : AppColors.navyDeep.withAlpha(120);
-    final activeBg = widget.dark ? AppColors.white : AppColors.navyDeep;
+    final borderColor = dark ? AppColors.white.withAlpha(80) : AppColors.navyDeep.withAlpha(60);
+    final activeText = dark ? AppColors.navyDeep : AppColors.white;
+    final inactiveText = dark ? AppColors.white.withAlpha(180) : AppColors.navyDeep.withAlpha(120);
+    final activeBg = dark ? AppColors.white : AppColors.navyDeep;
 
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: borderColor),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _Pill(label: 'ID', active: _isId, activeBg: activeBg, activeText: activeText, inactiveText: inactiveText,
-              onTap: () => setState(() => _isId = true)),
-          _Pill(label: 'EN', active: !_isId, activeBg: activeBg, activeText: activeText, inactiveText: inactiveText,
-              onTap: () => setState(() => _isId = false)),
-        ],
+    return ValueListenableBuilder<bool>(
+      valueListenable: langIsId,
+      builder: (context, isId, _) => Container(
+        decoration: BoxDecoration(
+          border: Border.all(color: borderColor),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _Pill(
+              label: 'ID',
+              active: isId,
+              activeBg: activeBg,
+              activeText: activeText,
+              inactiveText: inactiveText,
+              onTap: () => langIsId.value = true,
+            ),
+            _Pill(
+              label: 'EN',
+              active: !isId,
+              activeBg: activeBg,
+              activeText: activeText,
+              inactiveText: inactiveText,
+              onTap: () => langIsId.value = false,
+            ),
+          ],
+        ),
       ),
     );
   }

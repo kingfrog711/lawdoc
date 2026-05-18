@@ -24,11 +24,17 @@ Modal app definition. Runs `vllm serve unsloth/gemma-4-E4B-it --enable-lora --lo
 - Fallback path (no `HF_ENDPOINT_URL`) tries HF serverless by model ID — almost certainly fails for a private custom LoRA, kept only as a "code still runs" safety net.
 
 ### `backend/.env.example`
-Three keys:
 - `HF_API_KEY` — required; HF token with read access to the private LoRA repo.
 - `HF_ENDPOINT_URL` — paste the Modal URL after deploy.
 - `HF_LORA_ADAPTER_NAME` — defaults to `perdata-lora`.
-- `GOOGLE_API_KEY` — optional, only for `/ocr-explain` image OCR.
+- `LLAMA_CLOUD_API_KEY` — required for `/parse-document` (file uploads in the chat). Get one free at https://cloud.llamaindex.ai (1000 pages/day free tier).
+- `GOOGLE_API_KEY` — optional, only for legacy `/ocr-explain` image OCR (the chat now uses `/parse-document` via LlamaParse instead).
+
+### `/parse-document` endpoint (LlamaParse)
+- `POST /parse-document` (multipart/form-data, field name `file`).
+- Accepts: PDF, DOCX, PPTX, XLSX, TXT, MD, RTF, HTML, ODT, EPUB, PNG, JPG, WEBP, BMP, GIF, TIFF. Max 15 MB.
+- Returns: `{"text": "...markdown...", "filename": "...", "char_count": N}`.
+- Flutter's chat picker calls this before sending to `/consult`, so models get clean parsed text instead of raw bytes.
 
 ### `hf_handler/` (untouched, stale)
 Custom HF Inference Endpoint handler from the previous attempt. **No longer used.** Keeping it for now in case we ever need to revisit. Delete once Modal is verified end-to-end.

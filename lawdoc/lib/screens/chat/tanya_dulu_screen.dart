@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:file_picker/file_picker.dart';
+import '../../l10n/strings.dart';
 import '../../models/legal_response.dart';
 import '../../models/consult_session.dart';
 import '../../services/ai_service.dart';
@@ -30,6 +31,7 @@ class _TanyaDuluScreenState extends State<TanyaDuluScreen> {
   ConsultSession? _session;
   bool _sessionLoading = true;
   bool _loading = false;
+  bool _parsingFile = false;
   _AttachedFile? _attached;
   _BackendStatus _backendStatus = _BackendStatus.checking;
 
@@ -58,17 +60,44 @@ class _TanyaDuluScreenState extends State<TanyaDuluScreen> {
   }
 
   Future<void> _pickFile() async {
+    if (_parsingFile) return;
+
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
-      allowedExtensions: ['txt', 'pdf'],
+      allowedExtensions: [
+        'pdf', 'docx', 'doc', 'pptx', 'ppt', 'xlsx', 'xls',
+        'txt', 'md', 'rtf', 'html', 'htm', 'odt', 'epub',
+        'png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif', 'tiff',
+      ],
       withData: true,
     );
     if (result == null || result.files.isEmpty) return;
     final file = result.files.first;
     final Uint8List? bytes = file.bytes;
     if (bytes == null) return;
+
+    setState(() => _parsingFile = true);
+
+    final parsed = await AiService.parseDocument(bytes, file.name);
+
+    if (!mounted) return;
+    setState(() => _parsingFile = false);
+
+    if (!parsed.success || parsed.text == null || parsed.text!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(t(
+            'Gagal memproses dokumen: ${parsed.error ?? "kosong"}',
+            'Failed to process document: ${parsed.error ?? "empty"}',
+          )),
+          backgroundColor: const Color(0xFFEF4444),
+        ),
+      );
+      return;
+    }
+
     setState(() {
-      _attached = _AttachedFile(name: file.name, content: String.fromCharCodes(bytes));
+      _attached = _AttachedFile(name: file.name, content: parsed.text!);
     });
   }
 
@@ -76,7 +105,10 @@ class _TanyaDuluScreenState extends State<TanyaDuluScreen> {
     final text = _controller.text.trim();
     if ((text.isEmpty && _attached == null) || _loading || _session == null) return;
 
-    final displayText = text.isNotEmpty ? text : 'Tolong analisa dokumen yang saya lampirkan.';
+    final displayText = text.isNotEmpty
+        ? text
+        : t('Tolong analisa dokumen yang saya lampirkan.',
+            'Please analyze the document I attached.');
     final attachedFile = _attached;
     _controller.clear();
 
@@ -109,7 +141,8 @@ class _TanyaDuluScreenState extends State<TanyaDuluScreen> {
       final errorMsg = ChatMessage(
         id: '${DateTime.now().millisecondsSinceEpoch}_err',
         isUser: false,
-        text: 'Model sedang tidak tersedia, coba lagi nanti.',
+        text: t('Model sedang tidak tersedia, coba lagi nanti.',
+            'The model is unavailable right now, try again later.'),
         timestamp: DateTime.now(),
         isSystemMessage: true,
       );
@@ -182,7 +215,7 @@ class _TanyaDuluScreenState extends State<TanyaDuluScreen> {
           final systemNote = ChatMessage(
             id: '${DateTime.now().millisecondsSinceEpoch}_ctx',
             isUser: false,
-            text: '📝 Informasi diperbarui.',
+            text: t('📝 Informasi diperbarui.', '📝 Information updated.'),
             timestamp: DateTime.now(),
             isSystemMessage: true,
           );
@@ -221,7 +254,7 @@ class _TanyaDuluScreenState extends State<TanyaDuluScreen> {
                 _StatusDot(status: _backendStatus),
                 const SizedBox(width: 6),
                 Text(
-                  'Tanya Dulu',
+                  t('Tanya Dulu', 'Ask First'),
                   style: GoogleFonts.inter(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
@@ -257,23 +290,25 @@ class _TanyaDuluScreenState extends State<TanyaDuluScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_outlined, size: 20, color: AppColors.textSecondary),
-            tooltip: 'Mulai sesi baru',
+            tooltip: t('Mulai sesi baru', 'Start new session'),
             onPressed: () async {
               final confirmed = await showDialog<bool>(
                 context: context,
                 builder: (_) => AlertDialog(
-                  title: Text('Mulai sesi baru?',
+                  title: Text(t('Mulai sesi baru?', 'Start new session?'),
                       style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
-                  content: Text('Riwayat percakapan ini akan dihapus.',
+                  content: Text(
+                      t('Riwayat percakapan ini akan dihapus.',
+                          'This chat history will be deleted.'),
                       style: GoogleFonts.inter(fontSize: 14)),
                   actions: [
                     TextButton(
                         onPressed: () => Navigator.pop(context, false),
-                        child: const Text('Batal')),
+                        child: Text(t('Batal', 'Cancel'))),
                     TextButton(
                         onPressed: () => Navigator.pop(context, true),
-                        child: const Text('Hapus & Mulai Baru',
-                            style: TextStyle(color: Color(0xFFEF4444)))),
+                        child: Text(t('Hapus & Mulai Baru', 'Delete & Start Over'),
+                            style: const TextStyle(color: Color(0xFFEF4444)))),
                   ],
                 ),
               );
@@ -300,7 +335,10 @@ class _TanyaDuluScreenState extends State<TanyaDuluScreen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Bukan pengganti pengacara. Gunakan jawaban AI untuk memahami situasi, lalu hubungi pengacara untuk tindakan resmi.',
+                    t(
+                      'Bukan pengganti pengacara. Gunakan jawaban AI untuk memahami situasi, lalu hubungi pengacara untuk tindakan resmi.',
+                      'Not a substitute for a lawyer. Use AI answers to understand your situation, then contact a lawyer for any formal action.',
+                    ),
                     style: GoogleFonts.inter(
                         fontSize: 11, color: AppColors.probonoText, height: 1.5),
                   ),
@@ -336,7 +374,32 @@ class _TanyaDuluScreenState extends State<TanyaDuluScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (_attached != null)
+                if (_parsingFile)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      children: [
+                        const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.navyDeep,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          t('Memproses dokumen...', 'Processing document...'),
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else if (_attached != null)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: _FileChip(
@@ -348,7 +411,7 @@ class _TanyaDuluScreenState extends State<TanyaDuluScreen> {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     GestureDetector(
-                      onTap: _pickFile,
+                      onTap: _parsingFile ? null : _pickFile,
                       child: Container(
                         width: 40,
                         height: 40,
@@ -364,13 +427,21 @@ class _TanyaDuluScreenState extends State<TanyaDuluScreen> {
                                 : AppColors.navyDeep.withAlpha(50),
                           ),
                         ),
-                        child: Icon(
-                          Icons.attach_file,
-                          size: 18,
-                          color: _attached != null
-                              ? AppColors.navyDeep
-                              : AppColors.textMuted,
-                        ),
+                        child: _parsingFile
+                            ? const Padding(
+                                padding: EdgeInsets.all(10),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: AppColors.navyDeep,
+                                ),
+                              )
+                            : Icon(
+                                Icons.attach_file,
+                                size: 18,
+                                color: _attached != null
+                                    ? AppColors.navyDeep
+                                    : AppColors.textMuted,
+                              ),
                       ),
                     ),
                     Expanded(
@@ -381,8 +452,10 @@ class _TanyaDuluScreenState extends State<TanyaDuluScreen> {
                         style: GoogleFonts.inter(fontSize: 14),
                         decoration: InputDecoration(
                           hintText: _attached != null
-                              ? 'Tanya tentang dokumen ini...'
-                              : 'Ceritakan masalah Anda...',
+                              ? t('Tanya tentang dokumen ini...',
+                                  'Ask about this document...')
+                              : t('Ceritakan masalah Anda...',
+                                  'Describe your situation...'),
                           suffixIcon:
                               const Icon(Icons.mic_none, color: AppColors.textMuted),
                         ),
@@ -413,11 +486,11 @@ class _TanyaDuluScreenState extends State<TanyaDuluScreen> {
   String get _statusSubtitle {
     switch (_backendStatus) {
       case _BackendStatus.checking:
-        return 'Menghubungkan ke AI...';
+        return t('Menghubungkan ke AI...', 'Connecting to AI...');
       case _BackendStatus.live:
-        return 'Perdata AI · Aktif';
+        return t('Perdata AI · Aktif', 'Perdata AI · Online');
       case _BackendStatus.offline:
-        return 'Model tidak tersedia';
+        return t('Model tidak tersedia', 'Model unavailable');
     }
   }
 }
@@ -567,16 +640,18 @@ class _EditContextSheetState extends State<_EditContextSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Perbarui Informasi',
+          Text(t('Perbarui Informasi', 'Update Information'),
               style: GoogleFonts.playfairDisplay(
                   fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.navyDeep)),
           const SizedBox(height: 4),
-          Text('Perubahan akan berlaku pada pesan berikutnya.',
+          Text(
+              t('Perubahan akan berlaku pada pesan berikutnya.',
+                  'Changes apply to the next message.'),
               style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary)),
           const SizedBox(height: 20),
 
           // Agama
-          Text('Agama',
+          Text(t('Agama', 'Religion'),
               style: GoogleFonts.inter(
                   fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
           const SizedBox(height: 8),
@@ -598,22 +673,23 @@ class _EditContextSheetState extends State<_EditContextSheet> {
           const SizedBox(height: 16),
 
           // Domisili
-          Text('Domisili',
+          Text(t('Domisili', 'Location'),
               style: GoogleFonts.inter(
                   fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
           const SizedBox(height: 8),
           TextField(
             controller: _domicileCtrl,
             style: GoogleFonts.inter(fontSize: 14),
-            decoration: const InputDecoration(
-              hintText: 'Contoh: Jakarta, Surabaya, Makassar...',
-              prefixIcon: Icon(Icons.location_on_outlined, size: 18),
+            decoration: InputDecoration(
+              hintText: t('Contoh: Jakarta, Surabaya, Makassar...',
+                  'e.g. Jakarta, Surabaya, Makassar...'),
+              prefixIcon: const Icon(Icons.location_on_outlined, size: 18),
             ),
           ),
           const SizedBox(height: 16),
 
           // Budget
-          Text('Kemampuan Biaya',
+          Text(t('Kemampuan Biaya', 'Budget'),
               style: GoogleFonts.inter(
                   fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
           const SizedBox(height: 8),
@@ -678,7 +754,8 @@ class _EditContextSheetState extends State<_EditContextSheet> {
                 Navigator.pop(context);
                 widget.onSave(updated);
               },
-              child: Text('Simpan', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+              child: Text(t('Simpan', 'Save'),
+                  style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
             ),
           ),
         ],
@@ -855,7 +932,7 @@ class _MessageBubble extends StatelessWidget {
                     _LegalBasisBlock(basis: lr.legalBasis),
                     const SizedBox(height: 12),
                     Text(
-                      'Langkah yang bisa Anda ambil:',
+                      t('Langkah yang bisa Anda ambil:', 'Steps you can take:'),
                       style: GoogleFonts.inter(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
@@ -993,7 +1070,7 @@ class _DocsCard extends StatelessWidget {
                   const Icon(Icons.checklist_outlined, size: 14, color: AppColors.gold),
                   const SizedBox(width: 6),
                   Text(
-                    'DOKUMEN YANG DIBUTUHKAN',
+                    t('DOKUMEN YANG DIBUTUHKAN', 'DOCUMENTS NEEDED'),
                     style: GoogleFonts.inter(
                         fontSize: 9,
                         fontWeight: FontWeight.w700,
@@ -1086,7 +1163,7 @@ class _StepsCard extends StatelessWidget {
               const Icon(Icons.format_list_numbered, size: 14, color: AppColors.navyDeep),
               const SizedBox(width: 6),
               Text(
-                'LANGKAH SELANJUTNYA',
+                t('LANGKAH SELANJUTNYA', 'NEXT STEPS'),
                 style: GoogleFonts.inter(
                     fontSize: 9,
                     fontWeight: FontWeight.w700,
@@ -1152,7 +1229,7 @@ class _OutcomeCard extends StatelessWidget {
               const Icon(Icons.bar_chart_outlined, size: 14, color: AppColors.gold),
               const SizedBox(width: 6),
               Text(
-                'PERKIRAAN HASIL',
+                t('PERKIRAAN HASIL', 'EXPECTED OUTCOME'),
                 style: GoogleFonts.inter(
                     fontSize: 9,
                     fontWeight: FontWeight.w700,
@@ -1193,14 +1270,17 @@ class _ReferCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Konsultasi Pengacara Disarankan',
+                Text(t('Konsultasi Pengacara Disarankan', 'Lawyer Consultation Recommended'),
                     style: GoogleFonts.inter(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
                         color: AppColors.navyDeep)),
                 const SizedBox(height: 4),
                 Text(
-                  'Kasus ini memerlukan pendampingan profesional. Gunakan fitur Cari Pengacara untuk menemukan advokat di domisili Anda.',
+                  t(
+                    'Kasus ini memerlukan pendampingan profesional. Gunakan fitur Cari Pengacara untuk menemukan advokat di domisili Anda.',
+                    'This case needs professional help. Use Find Lawyer to locate an advocate near you.',
+                  ),
                   style: GoogleFonts.inter(
                       fontSize: 11, color: AppColors.textSecondary, height: 1.4),
                 ),
@@ -1253,7 +1333,7 @@ class _SourceBadge extends StatelessWidget {
         ),
         const SizedBox(width: 5),
         Text(
-          fromBackend ? 'Perdata AI' : 'Offline',
+          fromBackend ? 'Perdata AI' : t('Offline', 'Offline'),
           style: GoogleFonts.inter(
             fontSize: 10,
             fontWeight: FontWeight.w600,
@@ -1288,7 +1368,7 @@ class _LegalBasisBlock extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('DASAR HUKUM',
+                Text(t('DASAR HUKUM', 'LEGAL BASIS'),
                     style: GoogleFonts.inter(
                         fontSize: 9,
                         fontWeight: FontWeight.w700,
@@ -1388,22 +1468,36 @@ class _TypingIndicator extends StatelessWidget {
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        margin: const EdgeInsets.only(bottom: 12, right: 60),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
           color: AppColors.chatAiBubble,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(4),
+            topRight: Radius.circular(16),
+            bottomLeft: Radius.circular(16),
+            bottomRight: Radius.circular(16),
+          ),
           boxShadow: [BoxShadow(color: Colors.black.withAlpha(13), blurRadius: 8)],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const SizedBox(width: 4),
+            Text(
+              t('Perdata AI sedang mengetik', 'Perdata AI is typing'),
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                fontStyle: FontStyle.italic,
+                color: AppColors.textSecondary,
+                height: 1.2,
+              ),
+            ),
+            const SizedBox(width: 8),
             _Dot(delay: 0),
             const SizedBox(width: 4),
-            _Dot(delay: 150),
+            _Dot(delay: 200),
             const SizedBox(width: 4),
-            _Dot(delay: 300),
+            _Dot(delay: 400),
           ],
         ),
       ),
@@ -1421,18 +1515,26 @@ class _Dot extends StatefulWidget {
 
 class _DotState extends State<_Dot> with SingleTickerProviderStateMixin {
   late AnimationController _ctrl;
-  late Animation<double> _anim;
+  late Animation<double> _scale;
+  late Animation<double> _opacity;
 
   @override
   void initState() {
     super.initState();
     _ctrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 600))
-      ..repeat(reverse: true);
-    _anim = Tween(begin: 0.3, end: 1.0)
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    );
+    _scale = Tween(begin: 0.6, end: 1.0)
         .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
+    _opacity = Tween(begin: 0.35, end: 1.0)
+        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
+
+    // Stagger: start the repeating animation only AFTER the delay so the
+    // three dots actually pulse in sequence (the previous version started
+    // them all at once, which made the stagger invisible).
     Future.delayed(Duration(milliseconds: widget.delay), () {
-      if (mounted) _ctrl.forward();
+      if (mounted) _ctrl.repeat(reverse: true);
     });
   }
 
@@ -1445,12 +1547,17 @@ class _DotState extends State<_Dot> with SingleTickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     return FadeTransition(
-      opacity: _anim,
-      child: Container(
-        width: 8,
-        height: 8,
-        decoration:
-            const BoxDecoration(color: AppColors.navyDeep, shape: BoxShape.circle),
+      opacity: _opacity,
+      child: ScaleTransition(
+        scale: _scale,
+        child: Container(
+          width: 7,
+          height: 7,
+          decoration: const BoxDecoration(
+            color: AppColors.navyDeep,
+            shape: BoxShape.circle,
+          ),
+        ),
       ),
     );
   }
