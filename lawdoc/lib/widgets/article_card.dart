@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../models/article.dart';
 import '../theme/colors.dart';
 
@@ -11,62 +10,87 @@ class ArticleCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Row(
-            children: [
-              Container(
-                width: 44, height: 44,
-                decoration: BoxDecoration(
-                  color: AppColors.amberCard,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                alignment: Alignment.center,
-                child: Text('§',
-                    style: GoogleFonts.playfairDisplay(
-                        fontSize: 20, color: AppColors.gold, fontWeight: FontWeight.w700)),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x0D000000),
+              offset: Offset(0, 4),
+              blurRadius: 20,
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 80, height: 80,
+              decoration: BoxDecoration(
+                color: AppColors.blush,
+                borderRadius: BorderRadius.circular(12),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(article.category.label,
-                        style: GoogleFonts.inter(
-                            fontSize: 10, fontWeight: FontWeight.w700,
-                            color: AppColors.gold, letterSpacing: 0.6)),
-                    const SizedBox(height: 2),
-                    Text(article.title,
-                        style: GoogleFonts.inter(
-                            fontSize: 14, fontWeight: FontWeight.w600,
-                            color: AppColors.textPrimary)),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        const Icon(Icons.access_time, size: 12, color: AppColors.textMuted),
-                        const SizedBox(width: 3),
-                        Text('${article.readMinutes} mnt',
-                            style: GoogleFonts.inter(fontSize: 11, color: AppColors.textMuted)),
-                        const SizedBox(width: 8),
-                        const Icon(Icons.menu_book, size: 12, color: AppColors.textMuted),
-                        const SizedBox(width: 3),
-                        Text(article.difficulty,
-                            style: GoogleFonts.inter(fontSize: 11, color: AppColors.textMuted)),
-                      ],
-                    ),
-                  ],
-                ),
+              alignment: Alignment.center,
+              child: Icon(_categoryIcon(article.category),
+                  size: 32, color: AppColors.mauve),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(article.title,
+                      style: const TextStyle(
+                          fontFamily: 'SFUIDisplay',
+                          fontSize: 16, fontWeight: FontWeight.w400,
+                          color: AppColors.articleTitle),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Icon(Icons.access_time, size: 12, color: AppColors.inactiveChipBorder),
+                      const SizedBox(width: 3),
+                      Text('${article.readMinutes} min',
+                          style: const TextStyle(
+                              fontFamily: 'SFUIDisplay',
+                              fontSize: 11, color: AppColors.inactiveChipBorder)),
+                      const SizedBox(width: 8),
+                      Container(
+                        width: 4, height: 4,
+                        decoration: const BoxDecoration(
+                          color: AppColors.inactiveChipBorder,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(article.category.label,
+                          style: const TextStyle(
+                              fontFamily: 'SFUIDisplay',
+                              fontSize: 11, color: AppColors.inactiveChipBorder)),
+                    ],
+                  ),
+                ],
               ),
-              const Icon(Icons.chevron_right, color: AppColors.textMuted, size: 20),
-            ],
-          ),
+            ),
+            const Icon(Icons.chevron_right, color: AppColors.inactiveChipBorder, size: 16),
+          ],
         ),
       ),
     );
+  }
+
+  static IconData _categoryIcon(ArticleCategory cat) {
+    switch (cat) {
+      case ArticleCategory.perceraian: return Icons.favorite_border;
+      case ArticleCategory.waris: return Icons.description_outlined;
+      case ArticleCategory.utang: return Icons.account_balance_wallet_outlined;
+      case ArticleCategory.tanah: return Icons.location_on_outlined;
+      default: return Icons.menu_book_outlined;
+    }
   }
 }

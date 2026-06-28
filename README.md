@@ -324,7 +324,7 @@ modal secret create huggingface-secret HF_TOKEN=hf_your_token_here
 Deploy:
 
 ```bash
-modal deploy modal_app.py
+modal deploy ../modal_app.py
 ```
 
 Modal prints a URL similar to:

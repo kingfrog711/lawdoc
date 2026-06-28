@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../l10n/strings.dart';
 import '../theme/colors.dart';
 
@@ -9,10 +8,10 @@ class LangToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final borderColor = dark ? AppColors.white.withAlpha(80) : AppColors.navyDeep.withAlpha(60);
-    final activeText = dark ? AppColors.navyDeep : AppColors.white;
-    final inactiveText = dark ? AppColors.white.withAlpha(180) : AppColors.navyDeep.withAlpha(120);
-    final activeBg = dark ? AppColors.white : AppColors.navyDeep;
+    final borderColor = dark ? AppColors.white.withAlpha(80) : AppColors.mauve.withAlpha(100);
+    final activeText = dark ? AppColors.burgundy : AppColors.white;
+    final inactiveText = dark ? AppColors.white.withAlpha(180) : AppColors.textSecondary;
+    final activeBg = dark ? AppColors.white : AppColors.burgundy;
 
     return ValueListenableBuilder<bool>(
       valueListenable: langIsId,
@@ -66,7 +65,8 @@ class _Pill extends StatelessWidget {
           color: active ? activeBg : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
         ),
-        child: Text(label, style: GoogleFonts.inter(
+        child: Text(label, style: TextStyle(
+          fontFamily: 'SFUIDisplay',
           fontSize: 11, fontWeight: FontWeight.w700,
           color: active ? activeText : inactiveText,
         )),

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../l10n/strings.dart';
 import '../../theme/colors.dart';
 
@@ -41,7 +40,8 @@ class _ProBonoScreenState extends State<ProBonoScreen> {
       appBar: AppBar(
         leading: const BackButton(color: AppColors.navyDeep),
         title: Text(t('Bantuan hukum gratis', 'Free legal aid'),
-            style: GoogleFonts.inter(
+            style: const TextStyle(
+                fontFamily: 'SFUIDisplay',
                 fontSize: 16, fontWeight: FontWeight.w600,
                 color: AppColors.textPrimary)),
       ),
@@ -74,7 +74,6 @@ class _FormView extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Hero card
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(20),
@@ -90,7 +89,8 @@ class _FormView extends StatelessWidget {
                 Text(
                     t('Hukum tidak boleh\njadi privilese.',
                         'Law should not be\na privilege.'),
-                    style: GoogleFonts.playfairDisplay(
+                    style: const TextStyle(
+                        fontFamily: 'AppleGaramond',
                         fontSize: 22, fontWeight: FontWeight.w700,
                         color: AppColors.gold, height: 1.2)),
                 const SizedBox(height: 8),
@@ -99,7 +99,8 @@ class _FormView extends StatelessWidget {
                     'LawDoc bermitra dengan LBH dan pengacara pro bono untuk mendampingi Anda — tanpa biaya.',
                     'LawDoc partners with LBH and pro bono lawyers to support you, free of charge.',
                   ),
-                  style: GoogleFonts.inter(
+                  style: const TextStyle(
+                      fontFamily: 'SFUIDisplay',
                       fontSize: 13, color: AppColors.probonoText, height: 1.5),
                 ),
               ],
@@ -108,7 +109,8 @@ class _FormView extends StatelessWidget {
           const SizedBox(height: 24),
 
           Text(t('Syarat kelayakan', 'Eligibility'),
-              style: GoogleFonts.inter(
+              style: const TextStyle(
+                  fontFamily: 'SFUIDisplay',
                   fontSize: 15, fontWeight: FontWeight.w700,
                   color: AppColors.textPrimary)),
           const SizedBox(height: 12),
@@ -128,7 +130,8 @@ class _FormView extends StatelessWidget {
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(c.text,
-                            style: GoogleFonts.inter(
+                            style: const TextStyle(
+                                fontFamily: 'SFUIDisplay',
                                 fontSize: 14, color: AppColors.textPrimary)),
                       ),
                     ],
@@ -140,13 +143,15 @@ class _FormView extends StatelessWidget {
 
           const SizedBox(height: 20),
           Text(t('Lengkapi data', 'Fill in your details'),
-              style: GoogleFonts.inter(
+              style: const TextStyle(
+                  fontFamily: 'SFUIDisplay',
                   fontSize: 15, fontWeight: FontWeight.w700,
                   color: AppColors.textPrimary)),
           const SizedBox(height: 12),
 
           Text(t('Jenis kasus', 'Case type'),
-              style: GoogleFonts.inter(
+              style: const TextStyle(
+                  fontFamily: 'SFUIDisplay',
                   fontSize: 13, fontWeight: FontWeight.w500,
                   color: AppColors.textPrimary)),
           const SizedBox(height: 6),
@@ -158,7 +163,8 @@ class _FormView extends StatelessWidget {
           const SizedBox(height: 14),
 
           Text(t('Penghasilan / bulan', 'Income / month'),
-              style: GoogleFonts.inter(
+              style: const TextStyle(
+                  fontFamily: 'SFUIDisplay',
                   fontSize: 13, fontWeight: FontWeight.w500,
                   color: AppColors.textPrimary)),
           const SizedBox(height: 6),
@@ -199,7 +205,8 @@ class _SuccessView extends StatelessWidget {
             ),
             const SizedBox(height: 20),
             Text(t('Permohonan terkirim', 'Application submitted'),
-                style: GoogleFonts.playfairDisplay(
+                style: const TextStyle(
+                    fontFamily: 'AppleGaramond',
                     fontSize: 24, fontWeight: FontWeight.w700,
                     color: AppColors.textPrimary)),
             const SizedBox(height: 12),
@@ -208,7 +215,9 @@ class _SuccessView extends StatelessWidget {
                 'Tim LBH akan menghubungi Anda dalam 1–3 hari kerja untuk verifikasi kelayakan dan penunjukan pengacara.',
                 'The LBH team will contact you within 1–3 business days to verify eligibility and assign a lawyer.',
               ),
-              style: GoogleFonts.inter(fontSize: 14, color: AppColors.textSecondary, height: 1.6),
+              style: const TextStyle(
+                  fontFamily: 'SFUIDisplay',
+                  fontSize: 14, color: AppColors.textSecondary, height: 1.6),
               textAlign: TextAlign.center,
             ),
           ],

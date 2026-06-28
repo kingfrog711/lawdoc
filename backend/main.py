@@ -26,6 +26,9 @@ HF_ENDPOINT_URL = os.getenv("HF_ENDPOINT_URL", "")  # OpenAI-compat endpoint (Mo
 HF_LORA_ADAPTER_NAME = os.getenv("HF_LORA_ADAPTER_NAME", "perdata-lora")  # vLLM --lora-modules name
 CONSULT_MODEL = "sirpratama/perdata-gemma4-lora-v2"
 
+print(f"[startup] HF_ENDPOINT_URL = '{HF_ENDPOINT_URL or '(not set — will use HF serverless)'}'")
+print(f"[startup] HF_LORA_ADAPTER_NAME = '{HF_LORA_ADAPTER_NAME}'")
+
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "")  # only used by /ocr-explain image step
 if GOOGLE_API_KEY:
     genai.configure(api_key=GOOGLE_API_KEY)
@@ -134,8 +137,9 @@ async def _call_hf(system: str, history: list[HistoryMessage], message: str) -> 
         messages.append({"role": "user", "content": message})
 
         if HF_ENDPOINT_URL:
-            # OpenAI-compatible endpoint (Modal/vLLM). Adapter name routes to the LoRA.
-            client = InferenceClient(base_url=HF_ENDPOINT_URL, token=HF_API_KEY or None)
+            target = f"{HF_ENDPOINT_URL}/v1/chat/completions"
+            print(f"[hf] → POST {target}  model={HF_LORA_ADAPTER_NAME}  msgs={len(messages)}")
+            client = InferenceClient(base_url=HF_ENDPOINT_URL, token=HF_API_KEY or None, timeout=90)
             resp = client.chat_completion(
                 messages=messages,
                 model=HF_LORA_ADAPTER_NAME,
@@ -143,13 +147,15 @@ async def _call_hf(system: str, history: list[HistoryMessage], message: str) -> 
                 temperature=0.4,
             )
         else:
-            # Fallback: try HF serverless inference by model ID (unlikely to work for private LoRA)
+            print(f"[hf] → HF serverless  model={CONSULT_MODEL}  msgs={len(messages)}")
             if not HF_API_KEY:
                 raise HTTPException(status_code=500, detail="HF_API_KEY not configured in .env")
-            client = InferenceClient(model=CONSULT_MODEL, token=HF_API_KEY)
+            client = InferenceClient(model=CONSULT_MODEL, token=HF_API_KEY, timeout=90)
             resp = client.chat_completion(messages=messages, max_tokens=2048, temperature=0.4)
 
-        return resp.choices[0].message.content
+        content = resp.choices[0].message.content
+        print(f"[hf] ← response received  chars={len(content)}")
+        return content
 
     return await asyncio.to_thread(_sync_call)
 
@@ -418,8 +424,19 @@ def health():
     return {"status": "ok", "model": CONSULT_MODEL, "version": "2.1.0"}
 
 
+@app.get("/test-model")
+async def test_model():
+    """Quick smoke-test: sends one token to the model and reports back."""
+    try:
+        result = await _call_hf("You are a helpful assistant.", [], "Say 'ok' in one word.")
+        return {"status": "ok", "response": result[:200]}
+    except Exception as e:
+        return {"status": "error", "detail": str(e)}
+
+
 @app.post("/consult", response_model=ConsultResponse)
 async def consult(req: ConsultRequest):
+    print(f"[consult] session={req.session_id}  state={req.context.flow_state}  msg='{req.message[:60]}'")
     try:
         state = req.context.flow_state
         if state == "extracting":

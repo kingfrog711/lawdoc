@@ -1,6 +1,5 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../l10n/strings.dart';
 import '../../models/legal_response.dart';
@@ -8,6 +7,9 @@ import '../../models/consult_session.dart';
 import '../../services/ai_service.dart';
 import '../../services/session_service.dart';
 import '../../theme/colors.dart';
+
+TextStyle _sfui(double size, {FontWeight w = FontWeight.w400, Color? color, double? height, double? letterSpacing}) =>
+    TextStyle(fontFamily: 'SFUIDisplay', fontSize: size, fontWeight: w, color: color, height: height, letterSpacing: letterSpacing);
 
 class TanyaDuluScreen extends StatefulWidget {
   const TanyaDuluScreen({super.key});
@@ -188,6 +190,11 @@ class _TanyaDuluScreenState extends State<TanyaDuluScreen> {
     });
   }
 
+  Future<void> _sendPreset(String text) async {
+    _controller.text = text;
+    await _send();
+  }
+
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
@@ -241,49 +248,29 @@ class _TanyaDuluScreenState extends State<TanyaDuluScreen> {
     }
 
     final ctx = _session!.context;
+    final hasMessages = _session!.messages.isNotEmpty;
 
     return Scaffold(
       backgroundColor: AppColors.cream,
       appBar: AppBar(
-        leading: const BackButton(color: AppColors.navyDeep),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        backgroundColor: AppColors.white,
+        leading: const BackButton(color: AppColors.navy),
+        title: Row(
           children: [
-            Row(
+            _StatusDot(status: _backendStatus),
+            const SizedBox(width: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _StatusDot(status: _backendStatus),
-                const SizedBox(width: 6),
                 Text(
-                  t('Tanya Dulu', 'Ask First'),
-                  style: GoogleFonts.inter(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary),
+                  'LawDoc Chatbot',
+                  style: _sfui(14, w: FontWeight.w700, color: AppColors.textPrimary),
                 ),
-                const SizedBox(width: 8),
-                if (ctx.caseType != null)
-                  _CaseTypeBadge(caseType: ctx.caseType!)
-                else
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: AppColors.navyDeep.withAlpha(60)),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      'BETA',
-                      style: GoogleFonts.inter(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.navyDeep,
-                          letterSpacing: 0.8),
-                    ),
-                  ),
+                Text(
+                  _statusSubtitle,
+                  style: _sfui(11, color: AppColors.textSecondary),
+                ),
               ],
-            ),
-            Text(
-              _statusSubtitle,
-              style: GoogleFonts.inter(fontSize: 11, color: AppColors.textSecondary),
             ),
           ],
         ),
@@ -296,11 +283,11 @@ class _TanyaDuluScreenState extends State<TanyaDuluScreen> {
                 context: context,
                 builder: (_) => AlertDialog(
                   title: Text(t('Mulai sesi baru?', 'Start new session?'),
-                      style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+                      style: _sfui(15, w: FontWeight.w700)),
                   content: Text(
                       t('Riwayat percakapan ini akan dihapus.',
                           'This chat history will be deleted.'),
-                      style: GoogleFonts.inter(fontSize: 14)),
+                      style: _sfui(14)),
                   actions: [
                     TextButton(
                         onPressed: () => Navigator.pop(context, false),
@@ -331,39 +318,39 @@ class _TanyaDuluScreenState extends State<TanyaDuluScreen> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.info_outline, size: 14, color: AppColors.gold),
+                const Icon(Icons.warning_amber_rounded,
+                    size: 14, color: AppColors.chatDisclaimerIcon),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     t(
-                      'Bukan pengganti pengacara. Gunakan jawaban AI untuk memahami situasi, lalu hubungi pengacara untuk tindakan resmi.',
-                      'Not a substitute for a lawyer. Use AI answers to understand your situation, then contact a lawyer for any formal action.',
+                      'Bukan pengganti pengacara / wakil pengacara. Gunakan jawaban AI untuk memahami situasi, lalu konsultasi dengan pengacara untuk tindakan resmi.',
+                      'Not a substitute for a lawyer. Use AI answers to understand your situation, then consult a lawyer for any formal action.',
                     ),
-                    style: GoogleFonts.inter(
-                        fontSize: 11, color: AppColors.probonoText, height: 1.5),
+                    style: _sfui(10, color: AppColors.chatDisclaimerText, height: 1.5),
                   ),
                 ),
               ],
             ),
           ),
 
-          // Context bar (shows once any value is extracted)
           if (ctx.hasAny)
             _ContextBar(context: ctx, onEdit: _showEditContextSheet),
 
-          // Messages
           Expanded(
-            child: ListView.builder(
-              controller: _scrollController,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              itemCount: _session!.messages.length + (_loading ? 1 : 0),
-              itemBuilder: (context, i) {
-                if (_loading && i == _session!.messages.length) {
-                  return const _TypingIndicator();
-                }
-                return _MessageBubble(message: _session!.messages[i]);
-              },
-            ),
+            child: hasMessages
+                ? ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    itemCount: _session!.messages.length + (_loading ? 1 : 0),
+                    itemBuilder: (context, i) {
+                      if (_loading && i == _session!.messages.length) {
+                        return const _TypingIndicator();
+                      }
+                      return _MessageBubble(message: _session!.messages[i]);
+                    },
+                  )
+                : _IntroState(onPreset: _sendPreset),
           ),
 
           // Input area
@@ -380,22 +367,13 @@ class _TanyaDuluScreenState extends State<TanyaDuluScreen> {
                     child: Row(
                       children: [
                         const SizedBox(
-                          width: 14,
-                          height: 14,
+                          width: 14, height: 14,
                           child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: AppColors.navyDeep,
-                          ),
+                              strokeWidth: 2, color: AppColors.navy),
                         ),
                         const SizedBox(width: 8),
-                        Text(
-                          t('Memproses dokumen...', 'Processing document...'),
-                          style: GoogleFonts.inter(
-                            fontSize: 12,
-                            color: AppColors.textSecondary,
-                            fontStyle: FontStyle.italic,
-                          ),
-                        ),
+                        Text(t('Memproses dokumen...', 'Processing document...'),
+                            style: _sfui(12, color: AppColors.textSecondary)),
                       ],
                     ),
                   )
@@ -413,35 +391,24 @@ class _TanyaDuluScreenState extends State<TanyaDuluScreen> {
                     GestureDetector(
                       onTap: _parsingFile ? null : _pickFile,
                       child: Container(
-                        width: 40,
-                        height: 40,
+                        width: 40, height: 40,
                         margin: const EdgeInsets.only(right: 8),
                         decoration: BoxDecoration(
                           color: _attached != null
-                              ? AppColors.navyDeep.withAlpha(20)
-                              : AppColors.cream,
+                              ? AppColors.mauve
+                              : const Color(0xFFEDE8E1),
                           shape: BoxShape.circle,
-                          border: Border.all(
-                            color: _attached != null
-                                ? AppColors.navyDeep
-                                : AppColors.navyDeep.withAlpha(50),
-                          ),
                         ),
                         child: _parsingFile
                             ? const Padding(
                                 padding: EdgeInsets.all(10),
                                 child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: AppColors.navyDeep,
-                                ),
+                                    strokeWidth: 2, color: AppColors.navy),
                               )
-                            : Icon(
-                                Icons.attach_file,
-                                size: 18,
+                            : Icon(Icons.attach_file, size: 18,
                                 color: _attached != null
-                                    ? AppColors.navyDeep
-                                    : AppColors.textMuted,
-                              ),
+                                    ? AppColors.burgundy
+                                    : AppColors.textMuted),
                       ),
                     ),
                     Expanded(
@@ -449,15 +416,15 @@ class _TanyaDuluScreenState extends State<TanyaDuluScreen> {
                         controller: _controller,
                         maxLines: null,
                         textInputAction: TextInputAction.newline,
-                        style: GoogleFonts.inter(fontSize: 14),
+                        style: _sfui(14),
                         decoration: InputDecoration(
                           hintText: _attached != null
                               ? t('Tanya tentang dokumen ini...',
                                   'Ask about this document...')
-                              : t('Ceritakan masalah Anda...',
-                                  'Describe your situation...'),
-                          suffixIcon:
-                              const Icon(Icons.mic_none, color: AppColors.textMuted),
+                              : t('Ajukan pertanyaan anda...',
+                                  'Ask your question...'),
+                          suffixIcon: const Icon(Icons.mic_none,
+                              color: AppColors.textMuted),
                         ),
                         onSubmitted: (_) => _send(),
                       ),
@@ -466,11 +433,11 @@ class _TanyaDuluScreenState extends State<TanyaDuluScreen> {
                     GestureDetector(
                       onTap: _send,
                       child: Container(
-                        width: 44,
-                        height: 44,
+                        width: 40, height: 40,
                         decoration: const BoxDecoration(
-                            color: AppColors.navyDeep, shape: BoxShape.circle),
-                        child: const Icon(Icons.send, color: AppColors.white, size: 18),
+                            color: Color(0xFF000000), shape: BoxShape.circle),
+                        child: const Icon(Icons.send,
+                            color: AppColors.white, size: 16),
                       ),
                     ),
                   ],
@@ -486,12 +453,135 @@ class _TanyaDuluScreenState extends State<TanyaDuluScreen> {
   String get _statusSubtitle {
     switch (_backendStatus) {
       case _BackendStatus.checking:
-        return t('Menghubungkan ke AI...', 'Connecting to AI...');
+        return t('Menghubungkan...', 'Connecting...');
       case _BackendStatus.live:
-        return t('Perdata AI · Aktif', 'Perdata AI · Online');
+        return 'Gemini AI · Active';
       case _BackendStatus.offline:
         return t('Model tidak tersedia', 'Model unavailable');
     }
+  }
+}
+
+// ── Intro state (empty chat) — bottom-half ellipse rising from bottom ──────────
+
+class _IntroState extends StatelessWidget {
+  final Future<void> Function(String) onPreset;
+  const _IntroState({required this.onPreset});
+
+  static const _presets = [
+    ('aku ingin bercerai dengan pasanganku', 'I want to divorce my spouse'),
+    ('aku kena sengketa tanah', 'I have a land dispute'),
+    ('aku ga dapet warisan', "I didn't get my inheritance"),
+    ('aku ditagih utang', 'I am being chased for debt'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final w = MediaQuery.of(context).size.width;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final h = constraints.maxHeight;
+        // Ellipse: 899×736 on a 402-wide frame → ratio 2.24× wide, 0.84× content height
+        // Positioned so only the top dome is visible — top edge at ~55% down
+        final ellipseW = w * 2.24;
+        final ellipseH = h * 0.84;
+        final offsetX = -(ellipseW - w) / 2;
+
+        return Stack(
+          clipBehavior: Clip.hardEdge,
+          children: [
+            // Large blush ellipse — anchored at bottom, only dome visible
+            Positioned(
+              top: h * 0.55,
+              left: offsetX,
+              child: Container(
+                width: ellipseW,
+                height: ellipseH,
+                decoration: BoxDecoration(
+                  color: AppColors.blush,
+                  borderRadius: BorderRadius.circular(ellipseW / 2),
+                ),
+              ),
+            ),
+
+            // Content — logo + subtitle + chips inside the dome
+            Positioned(
+              top: h * 0.60,
+              left: 24,
+              right: 24,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // "LawDoc" — Apple Garamond 69px bold
+                  const Text(
+                    'LawDoc',
+                    style: TextStyle(
+                      fontFamily: 'AppleGaramond',
+                      fontSize: 69,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.mauve,
+                      height: 1.1,
+                    ),
+                  ),
+                  Text(
+                    t('bagaimana', 'how can'),
+                    style: const TextStyle(
+                      fontFamily: 'SFUIDisplay',
+                      fontSize: 13.8,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.mauve,
+                    ),
+                  ),
+                  Text(
+                    t('bisa membantu?', 'we help you?'),
+                    style: const TextStyle(
+                      fontFamily: 'SFUIDisplay',
+                      fontSize: 13.8,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.mauve,
+                    ),
+                  ),
+
+                  const SizedBox(height: 17),
+
+                  // Suggestion chips
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    alignment: WrapAlignment.center,
+                    children: _presets.map((p) {
+                      final (id, en) = p;
+                      return GestureDetector(
+                        onTap: () => onPreset(t(id, en)),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppColors.mauve.withValues(alpha: 0.2),
+                            border: Border.all(color: AppColors.mauve),
+                            borderRadius: BorderRadius.circular(30),
+                          ),
+                          child: Text(
+                            t(id, en),
+                            style: const TextStyle(
+                              fontFamily: 'SFUIDisplay',
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.mauve,
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 }
 
@@ -579,7 +669,8 @@ class _ContextPill extends StatelessWidget {
           Icon(icon, size: 11, color: AppColors.navyDeep),
           const SizedBox(width: 4),
           Text(label,
-              style: GoogleFonts.inter(
+              style: TextStyle(
+                  fontFamily: 'SFUIDisplay',
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                   color: AppColors.navyDeep)),
@@ -641,19 +732,18 @@ class _EditContextSheetState extends State<_EditContextSheet> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(t('Perbarui Informasi', 'Update Information'),
-              style: GoogleFonts.playfairDisplay(
+              style: const TextStyle(
+                  fontFamily: 'AppleGaramond',
                   fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.navyDeep)),
           const SizedBox(height: 4),
           Text(
               t('Perubahan akan berlaku pada pesan berikutnya.',
                   'Changes apply to the next message.'),
-              style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary)),
+              style: _sfui(12, color: AppColors.textSecondary)),
           const SizedBox(height: 20),
 
-          // Agama
           Text(t('Agama', 'Religion'),
-              style: GoogleFonts.inter(
-                  fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+              style: _sfui(12, w: FontWeight.w600, color: AppColors.textPrimary)),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
@@ -661,7 +751,8 @@ class _EditContextSheetState extends State<_EditContextSheet> {
               final selected = _agama == a;
               return ChoiceChip(
                 label: Text(a,
-                    style: GoogleFonts.inter(
+                    style: TextStyle(
+                        fontFamily: 'SFUIDisplay',
                         fontSize: 13,
                         color: selected ? AppColors.white : AppColors.textPrimary)),
                 selected: selected,
@@ -672,14 +763,12 @@ class _EditContextSheetState extends State<_EditContextSheet> {
           ),
           const SizedBox(height: 16),
 
-          // Domisili
           Text(t('Domisili', 'Location'),
-              style: GoogleFonts.inter(
-                  fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+              style: _sfui(12, w: FontWeight.w600, color: AppColors.textPrimary)),
           const SizedBox(height: 8),
           TextField(
             controller: _domicileCtrl,
-            style: GoogleFonts.inter(fontSize: 14),
+            style: _sfui(14),
             decoration: InputDecoration(
               hintText: t('Contoh: Jakarta, Surabaya, Makassar...',
                   'e.g. Jakarta, Surabaya, Makassar...'),
@@ -688,10 +777,8 @@ class _EditContextSheetState extends State<_EditContextSheet> {
           ),
           const SizedBox(height: 16),
 
-          // Budget
           Text(t('Kemampuan Biaya', 'Budget'),
-              style: GoogleFonts.inter(
-                  fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+              style: _sfui(12, w: FontWeight.w600, color: AppColors.textPrimary)),
           const SizedBox(height: 8),
           ...(_budgetOptions.map((opt) {
             final (value, label) = opt;
@@ -726,7 +813,7 @@ class _EditContextSheetState extends State<_EditContextSheet> {
                           : null,
                     ),
                     const SizedBox(width: 10),
-                    Text(label, style: GoogleFonts.inter(fontSize: 13)),
+                    Text(label, style: _sfui(13)),
                   ],
                 ),
               ),
@@ -755,41 +842,10 @@ class _EditContextSheetState extends State<_EditContextSheet> {
                 widget.onSave(updated);
               },
               child: Text(t('Simpan', 'Save'),
-                  style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+                  style: _sfui(15, w: FontWeight.w700)),
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-// ── Case type badge ────────────────────────────────────────────────────────────
-
-class _CaseTypeBadge extends StatelessWidget {
-  final String caseType;
-  const _CaseTypeBadge({required this.caseType});
-
-  static const _colors = {
-    'perceraian': Color(0xFF8B1A1A),
-    'warisan': Color(0xFF1A4A8B),
-    'tanah': Color(0xFF1A6B3C),
-    'utang': Color(0xFF7B4A1A),
-  };
-
-  @override
-  Widget build(BuildContext context) {
-    final color = _colors[caseType] ?? AppColors.navyDeep;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(4)),
-      child: Text(
-        caseType.toUpperCase(),
-        style: GoogleFonts.inter(
-            fontSize: 9,
-            fontWeight: FontWeight.w700,
-            color: AppColors.white,
-            letterSpacing: 0.8),
       ),
     );
   }
@@ -803,7 +859,6 @@ class _MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // System / error messages (centered, muted)
     if (message.isSystemMessage) {
       return Center(
         child: Container(
@@ -815,10 +870,7 @@ class _MessageBubble extends StatelessWidget {
           ),
           child: Text(
             message.text,
-            style: GoogleFonts.inter(
-                fontSize: 11,
-                color: AppColors.textMuted,
-                fontStyle: FontStyle.italic),
+            style: _sfui(11, color: AppColors.textMuted).copyWith(fontStyle: FontStyle.italic),
           ),
         ),
       );
@@ -850,27 +902,33 @@ class _MessageBubble extends StatelessWidget {
                         child: Text(
                           message.attachedFileName!,
                           overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.inter(fontSize: 11, color: AppColors.white),
+                          style: _sfui(11, color: AppColors.white),
                         ),
                       ),
                     ],
                   ),
                 ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 decoration: const BoxDecoration(
                   color: AppColors.chatUserBubble,
                   borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(16),
-                    topRight: Radius.circular(16),
-                    bottomLeft: Radius.circular(16),
-                    bottomRight: Radius.circular(4),
+                    topLeft: Radius.circular(10),
+                    topRight: Radius.circular(2),
+                    bottomLeft: Radius.circular(10),
+                    bottomRight: Radius.circular(10),
                   ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Color(0x40000000),
+                      offset: Offset(0, 4),
+                      blurRadius: 4,
+                    ),
+                  ],
                 ),
                 child: Text(
                   message.text,
-                  style: GoogleFonts.inter(
-                      fontSize: 14, color: AppColors.white, height: 1.5),
+                  style: _sfui(12, color: AppColors.chatUserText, height: 1.5),
                 ),
               ),
             ],
@@ -891,26 +949,25 @@ class _MessageBubble extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: const BoxDecoration(
                 color: AppColors.chatAiBubble,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(4),
-                  topRight: Radius.circular(16),
-                  bottomLeft: Radius.circular(16),
-                  bottomRight: Radius.circular(16),
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(2),
+                  topRight: Radius.circular(10),
+                  bottomLeft: Radius.circular(10),
+                  bottomRight: Radius.circular(10),
                 ),
                 boxShadow: [
                   BoxShadow(
-                      color: Colors.black.withAlpha(13),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2)),
+                      color: Color(0x40000000),
+                      blurRadius: 4,
+                      offset: Offset(0, 4)),
                 ],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Source badge
                   if (cs != null || lr != null)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 8),
@@ -918,25 +975,19 @@ class _MessageBubble extends StatelessWidget {
                     ),
                   Text(
                     message.text,
-                    style: GoogleFonts.inter(
-                        fontSize: 14, color: AppColors.textPrimary, height: 1.5),
+                    style: _sfui(12, color: AppColors.chatAiText, height: 1.5),
                   ),
-                  // New consult structured cards
                   if (cs != null && cs.hasContent) ...[
                     const SizedBox(height: 12),
                     _ConsultCards(structured: cs),
                   ],
-                  // Legacy legal response
                   if (lr != null && cs == null) ...[
                     const SizedBox(height: 12),
                     _LegalBasisBlock(basis: lr.legalBasis),
                     const SizedBox(height: 12),
                     Text(
                       t('Langkah yang bisa Anda ambil:', 'Steps you can take:'),
-                      style: GoogleFonts.inter(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary),
+                      style: _sfui(13, w: FontWeight.w600, color: AppColors.textPrimary),
                     ),
                     const SizedBox(height: 6),
                     ...lr.steps.asMap().entries.map((e) => Padding(
@@ -951,18 +1002,12 @@ class _MessageBubble extends StatelessWidget {
                                     color: AppColors.navyDeep, shape: BoxShape.circle),
                                 alignment: Alignment.center,
                                 child: Text('${e.key + 1}',
-                                    style: GoogleFonts.inter(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w700,
-                                        color: AppColors.white)),
+                                    style: _sfui(10, w: FontWeight.w700, color: AppColors.white)),
                               ),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(e.value,
-                                    style: GoogleFonts.inter(
-                                        fontSize: 13,
-                                        color: AppColors.textPrimary,
-                                        height: 1.5)),
+                                    style: _sfui(13, color: AppColors.textPrimary, height: 1.5)),
                               ),
                             ],
                           ),
@@ -1071,19 +1116,12 @@ class _DocsCard extends StatelessWidget {
                   const SizedBox(width: 6),
                   Text(
                     t('DOKUMEN YANG DIBUTUHKAN', 'DOCUMENTS NEEDED'),
-                    style: GoogleFonts.inter(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.navyDeep,
-                        letterSpacing: 1),
+                    style: _sfui(9, w: FontWeight.w700, color: AppColors.navyDeep, letterSpacing: 1),
                   ),
                   const Spacer(),
                   Text(
                     '${checked.length}/${docs.length}',
-                    style: GoogleFonts.inter(
-                        fontSize: 10,
-                        color: AppColors.textSecondary,
-                        fontWeight: FontWeight.w600),
+                    style: _sfui(10, color: AppColors.textSecondary, w: FontWeight.w600),
                   ),
                   const SizedBox(width: 6),
                   Icon(
@@ -1117,15 +1155,15 @@ class _DocsCard extends StatelessWidget {
                         Expanded(
                           child: Text(
                             e.value,
-                            style: GoogleFonts.inter(
-                              fontSize: 12,
+                            style: _sfui(12,
                               color: checked.contains(e.key)
                                   ? AppColors.textMuted
                                   : AppColors.textPrimary,
+                              height: 1.4,
+                            ).copyWith(
                               decoration: checked.contains(e.key)
                                   ? TextDecoration.lineThrough
                                   : null,
-                              height: 1.4,
                             ),
                           ),
                         ),
@@ -1164,11 +1202,7 @@ class _StepsCard extends StatelessWidget {
               const SizedBox(width: 6),
               Text(
                 t('LANGKAH SELANJUTNYA', 'NEXT STEPS'),
-                style: GoogleFonts.inter(
-                    fontSize: 9,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.navyDeep,
-                    letterSpacing: 1),
+                style: _sfui(9, w: FontWeight.w700, color: AppColors.navyDeep, letterSpacing: 1),
               ),
             ],
           ),
@@ -1185,18 +1219,12 @@ class _StepsCard extends StatelessWidget {
                           color: AppColors.navyDeep, shape: BoxShape.circle),
                       alignment: Alignment.center,
                       child: Text('${e.key + 1}',
-                          style: GoogleFonts.inter(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.white)),
+                          style: _sfui(10, w: FontWeight.w700, color: AppColors.white)),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(e.value,
-                          style: GoogleFonts.inter(
-                              fontSize: 12,
-                              color: AppColors.textPrimary,
-                              height: 1.5)),
+                          style: _sfui(12, color: AppColors.chatAiText, height: 1.5)),
                     ),
                   ],
                 ),
@@ -1230,18 +1258,13 @@ class _OutcomeCard extends StatelessWidget {
               const SizedBox(width: 6),
               Text(
                 t('PERKIRAAN HASIL', 'EXPECTED OUTCOME'),
-                style: GoogleFonts.inter(
-                    fontSize: 9,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.navyDeep,
-                    letterSpacing: 1),
+                style: _sfui(9, w: FontWeight.w700, color: AppColors.navyDeep, letterSpacing: 1),
               ),
             ],
           ),
           const SizedBox(height: 6),
           Text(outcome,
-              style: GoogleFonts.inter(
-                  fontSize: 12, color: AppColors.textPrimary, height: 1.5)),
+              style: _sfui(12, color: AppColors.textPrimary, height: 1.5)),
         ],
       ),
     );
@@ -1271,18 +1294,14 @@ class _ReferCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(t('Konsultasi Pengacara Disarankan', 'Lawyer Consultation Recommended'),
-                    style: GoogleFonts.inter(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.navyDeep)),
+                    style: _sfui(12, w: FontWeight.w700, color: AppColors.navyDeep)),
                 const SizedBox(height: 4),
                 Text(
                   t(
                     'Kasus ini memerlukan pendampingan profesional. Gunakan fitur Cari Pengacara untuk menemukan advokat di domisili Anda.',
                     'This case needs professional help. Use Find Lawyer to locate an advocate near you.',
                   ),
-                  style: GoogleFonts.inter(
-                      fontSize: 11, color: AppColors.textSecondary, height: 1.4),
+                  style: _sfui(11, color: AppColors.textSecondary, height: 1.4),
                 ),
               ],
             ),
@@ -1334,12 +1353,9 @@ class _SourceBadge extends StatelessWidget {
         const SizedBox(width: 5),
         Text(
           fromBackend ? 'Perdata AI' : t('Offline', 'Offline'),
-          style: GoogleFonts.inter(
-            fontSize: 10,
-            fontWeight: FontWeight.w600,
-            color: fromBackend ? AppColors.verified : const Color(0xFFEF4444),
-            letterSpacing: 0.3,
-          ),
+          style: _sfui(10, w: FontWeight.w600,
+              color: fromBackend ? AppColors.verified : const Color(0xFFEF4444),
+              letterSpacing: 0.3),
         ),
       ],
     );
@@ -1369,21 +1385,13 @@ class _LegalBasisBlock extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(t('DASAR HUKUM', 'LEGAL BASIS'),
-                    style: GoogleFonts.inter(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.navyDeep,
-                        letterSpacing: 1)),
+                    style: _sfui(9, w: FontWeight.w700, color: AppColors.navyDeep, letterSpacing: 1)),
                 const SizedBox(height: 4),
                 Text(basis.pasal,
-                    style: GoogleFonts.inter(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.navyDeep)),
+                    style: _sfui(13, w: FontWeight.w700, color: AppColors.navyDeep)),
                 const SizedBox(height: 6),
                 Text(basis.text,
-                    style: GoogleFonts.inter(
-                        fontSize: 12, color: AppColors.textSecondary, height: 1.5)),
+                    style: _sfui(12, color: AppColors.textSecondary, height: 1.5)),
               ],
             ),
           ),
@@ -1403,11 +1411,7 @@ class _LegalBasisBlock extends StatelessWidget {
                   Expanded(
                     child: Text(
                       basis.application!,
-                      style: GoogleFonts.inter(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.navyDeep,
-                          height: 1.5),
+                      style: _sfui(12, w: FontWeight.w500, color: AppColors.navyDeep, height: 1.5),
                     ),
                   ),
                 ],
@@ -1444,10 +1448,7 @@ class _FileChip extends StatelessWidget {
             constraints: const BoxConstraints(maxWidth: 200),
             child: Text(name,
                 overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.inter(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.navyDeep)),
+                style: _sfui(12, w: FontWeight.w500, color: AppColors.navyDeep)),
           ),
           const SizedBox(width: 6),
           GestureDetector(
@@ -1470,27 +1471,22 @@ class _TypingIndicator extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.only(bottom: 12, right: 60),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           color: AppColors.chatAiBubble,
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(4),
-            topRight: Radius.circular(16),
-            bottomLeft: Radius.circular(16),
-            bottomRight: Radius.circular(16),
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(2),
+            topRight: Radius.circular(10),
+            bottomLeft: Radius.circular(10),
+            bottomRight: Radius.circular(10),
           ),
-          boxShadow: [BoxShadow(color: Colors.black.withAlpha(13), blurRadius: 8)],
+          boxShadow: [BoxShadow(color: Color(0x40000000), blurRadius: 4)],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              t('Perdata AI sedang mengetik', 'Perdata AI is typing'),
-              style: GoogleFonts.inter(
-                fontSize: 12,
-                fontStyle: FontStyle.italic,
-                color: AppColors.textSecondary,
-                height: 1.2,
-              ),
+              t('LawDoc sedang mengetik...', 'LawDoc is typing...'),
+              style: _sfui(12, height: 1.2).copyWith(fontStyle: FontStyle.italic),
             ),
             const SizedBox(width: 8),
             _Dot(delay: 0),
@@ -1530,9 +1526,6 @@ class _DotState extends State<_Dot> with SingleTickerProviderStateMixin {
     _opacity = Tween(begin: 0.35, end: 1.0)
         .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
 
-    // Stagger: start the repeating animation only AFTER the delay so the
-    // three dots actually pulse in sequence (the previous version started
-    // them all at once, which made the stagger invisible).
     Future.delayed(Duration(milliseconds: widget.delay), () {
       if (mounted) _ctrl.repeat(reverse: true);
     });
@@ -1554,7 +1547,7 @@ class _DotState extends State<_Dot> with SingleTickerProviderStateMixin {
           width: 7,
           height: 7,
           decoration: const BoxDecoration(
-            color: AppColors.navyDeep,
+            color: AppColors.mauve,
             shape: BoxShape.circle,
           ),
         ),

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../data/mock_lawyers.dart';
 import '../../models/lawyer.dart';
 import '../../theme/colors.dart';
@@ -18,8 +17,8 @@ class LawyerProfileScreen extends StatelessWidget {
       backgroundColor: AppColors.cream,
       appBar: AppBar(
         leading: const BackButton(color: AppColors.navyDeep),
-        title: Text('Profil pengacara',
-            style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w600)),
+        title: const Text('Profil pengacara',
+            style: TextStyle(fontFamily: 'SFUIDisplay', fontSize: 16, fontWeight: FontWeight.w600)),
         actions: [
           IconButton(
             icon: const Icon(Icons.favorite_border, color: AppColors.navyDeep),
@@ -41,19 +40,23 @@ class LawyerProfileScreen extends StatelessWidget {
                       radius: 36,
                       backgroundColor: AppColors.navyDeep,
                       child: Text(l.initials,
-                          style: GoogleFonts.inter(
+                          style: const TextStyle(
+                              fontFamily: 'SFUIDisplay',
                               fontSize: 20, fontWeight: FontWeight.w700,
                               color: AppColors.white)),
                     ),
                     const SizedBox(height: 12),
                     Text(l.name,
-                        style: GoogleFonts.inter(
+                        style: const TextStyle(
+                            fontFamily: 'SFUIDisplay',
                             fontSize: 17, fontWeight: FontWeight.w700,
                             color: AppColors.textPrimary),
                         textAlign: TextAlign.center),
                     const SizedBox(height: 4),
                     Text(l.specialization,
-                        style: GoogleFonts.inter(fontSize: 13, color: AppColors.textSecondary),
+                        style: const TextStyle(
+                            fontFamily: 'SFUIDisplay',
+                            fontSize: 13, color: AppColors.textSecondary),
                         textAlign: TextAlign.center),
                     const SizedBox(height: 10),
                     if (l.isVerifiedPeradi)
@@ -68,8 +71,9 @@ class LawyerProfileScreen extends StatelessWidget {
                           children: [
                             const Icon(Icons.verified, size: 14, color: AppColors.verified),
                             const SizedBox(width: 4),
-                            Text('Terverifikasi PERADI',
-                                style: GoogleFonts.inter(
+                            const Text('Terverifikasi PERADI',
+                                style: TextStyle(
+                                    fontFamily: 'SFUIDisplay',
                                     fontSize: 11, fontWeight: FontWeight.w600,
                                     color: AppColors.verifiedText)),
                           ],
@@ -94,13 +98,15 @@ class LawyerProfileScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Tentang',
-                        style: GoogleFonts.inter(
+                    const Text('Tentang',
+                        style: TextStyle(
+                            fontFamily: 'SFUIDisplay',
                             fontSize: 15, fontWeight: FontWeight.w700,
                             color: AppColors.textPrimary)),
                     const SizedBox(height: 8),
                     Text(l.bio,
-                        style: GoogleFonts.inter(
+                        style: const TextStyle(
+                            fontFamily: 'SFUIDisplay',
                             fontSize: 14, color: AppColors.textSecondary, height: 1.6)),
                     const SizedBox(height: 14),
                     Wrap(
@@ -113,7 +119,9 @@ class LawyerProfileScreen extends StatelessWidget {
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(lang,
-                            style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary)),
+                            style: const TextStyle(
+                                fontFamily: 'SFUIDisplay',
+                                fontSize: 12, color: AppColors.textSecondary)),
                       )).toList(),
                     ),
                   ],
@@ -127,8 +135,9 @@ class LawyerProfileScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Bidang praktek',
-                        style: GoogleFonts.inter(
+                    const Text('Bidang praktek',
+                        style: TextStyle(
+                            fontFamily: 'SFUIDisplay',
                             fontSize: 15, fontWeight: FontWeight.w700,
                             color: AppColors.textPrimary)),
                     const SizedBox(height: 12),
@@ -138,10 +147,12 @@ class LawyerProfileScreen extends StatelessWidget {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(area,
-                                  style: GoogleFonts.inter(
+                                  style: const TextStyle(
+                                      fontFamily: 'SFUIDisplay',
                                       fontSize: 14, color: AppColors.textPrimary)),
                               Text(_caseCount(area),
-                                  style: GoogleFonts.inter(
+                                  style: const TextStyle(
+                                      fontFamily: 'SFUIDisplay',
                                       fontSize: 13, color: AppColors.textSecondary)),
                             ],
                           ),
@@ -158,7 +169,7 @@ class LawyerProfileScreen extends StatelessWidget {
   }
 
   String _caseCount(String area) {
-    final map = {
+    const map = {
       'Perceraian & hak asuh': '142 kasus',
       'Hukum waris': '89 kasus',
       'Perjanjian pra-nikah': '53 kasus',
@@ -188,14 +199,16 @@ class _Stat extends StatelessWidget {
           RichText(
             text: TextSpan(
               text: value,
-              style: GoogleFonts.inter(
+              style: const TextStyle(
+                  fontFamily: 'SFUIDisplay',
                   fontSize: 22, fontWeight: FontWeight.w700,
                   color: AppColors.textPrimary),
               children: [
                 if (unit.isNotEmpty)
                   TextSpan(
                     text: ' $unit',
-                    style: GoogleFonts.inter(
+                    style: const TextStyle(
+                        fontFamily: 'SFUIDisplay',
                         fontSize: 11, color: AppColors.textSecondary),
                   ),
               ],
@@ -203,7 +216,9 @@ class _Stat extends StatelessWidget {
           ),
           const SizedBox(height: 2),
           Text(label,
-              style: GoogleFonts.inter(fontSize: 11, color: AppColors.textSecondary),
+              style: const TextStyle(
+                  fontFamily: 'SFUIDisplay',
+                  fontSize: 11, color: AppColors.textSecondary),
               textAlign: TextAlign.center),
         ],
       ),
@@ -232,10 +247,11 @@ class _BottomBar extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Pilihan konsultasi',
-                      style: GoogleFonts.inter(fontSize: 11, color: AppColors.textMuted)),
+                  const Text('Pilihan konsultasi',
+                      style: TextStyle(fontFamily: 'SFUIDisplay', fontSize: 11, color: AppColors.textMuted)),
                   Text(lawyer.priceLabel ?? '',
-                      style: GoogleFonts.inter(
+                      style: const TextStyle(
+                          fontFamily: 'SFUIDisplay',
                           fontSize: 14, fontWeight: FontWeight.w700,
                           color: AppColors.textPrimary)),
                 ],

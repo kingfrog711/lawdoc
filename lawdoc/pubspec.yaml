@@ -10,7 +10,6 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
-  google_fonts: ^6.2.1
   go_router: ^14.6.2
   http: ^1.2.2
   shared_preferences: ^2.3.3
@@ -27,3 +26,39 @@ flutter:
   uses-material-design: true
   assets:
     - assets/data/
+    - assets/fonts/
+  fonts:
+    - family: AppleGaramond
+      fonts:
+        - asset: assets/fonts/AppleGaramond.ttf
+        - asset: assets/fonts/AppleGaramond-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/AppleGaramond-Italic.ttf
+          style: italic
+        - asset: assets/fonts/AppleGaramond-BoldItalic.ttf
+          weight: 700
+          style: italic
+        - asset: assets/fonts/AppleGaramond-Light.ttf
+          weight: 300
+        - asset: assets/fonts/AppleGaramond-LightItalic.ttf
+          weight: 300
+          style: italic
+    - family: SFUIDisplay
+      fonts:
+        - asset: assets/fonts/SFUIDisplay-Regular.otf
+        - asset: assets/fonts/SFUIDisplay-Medium.otf
+          weight: 500
+        - asset: assets/fonts/SFUIDisplay-Semibold.otf
+          weight: 600
+        - asset: assets/fonts/SFUIDisplay-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/SFUIDisplay-Black.otf
+          weight: 900
+        - asset: assets/fonts/SFUIDisplay-Heavy.otf
+          weight: 800
+        - asset: assets/fonts/SFUIDisplay-Light.ttf
+          weight: 300
+        - asset: assets/fonts/SFUIDisplay-Thin.otf
+          weight: 100
+        - asset: assets/fonts/SFUIDisplay-Ultralight.otf
+          weight: 200

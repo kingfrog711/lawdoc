@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../models/lawyer.dart';
 import '../theme/colors.dart';
 
@@ -11,15 +10,26 @@ class LawyerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    return Container(
       margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x40000000),
+            offset: Offset(0, 3.2),
+            blurRadius: 3.2,
+          ),
+        ],
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _Avatar(initials: lawyer.initials),
-            const SizedBox(width: 12),
+            const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -28,7 +38,9 @@ class LawyerCard extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(lawyer.name,
-                            style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600,
+                            style: const TextStyle(
+                                fontFamily: 'SFUIDisplay',
+                                fontSize: 15, fontWeight: FontWeight.w700,
                                 color: AppColors.textPrimary)),
                       ),
                       if (lawyer.isVerifiedPeradi)
@@ -36,42 +48,70 @@ class LawyerCard extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 2),
-                  Text('${lawyer.specialization} · ${lawyer.yearsExp} thn pengalaman',
-                      style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary)),
+                  Text(lawyer.specialization,
+                      style: const TextStyle(
+                          fontFamily: 'SFUIDisplay',
+                          fontSize: 12, color: AppColors.textSecondary)),
                   const SizedBox(height: 6),
                   Row(
                     children: [
-                      const Icon(Icons.star, size: 14, color: AppColors.gold),
-                      const SizedBox(width: 2),
-                      Text('${lawyer.rating} (${lawyer.reviewCount})',
-                          style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary)),
+                      _Badge(label: '${lawyer.yearsExp} thn', color: const Color(0xFFFFF3E0)),
+                      const SizedBox(width: 6),
+                      _Badge(
+                        label: '${(lawyer.rating * 10).round()}%',
+                        color: AppColors.blush,
+                      ),
                       if (lawyer.isProBono) ...[
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6),
                         _ProBonoBadge(),
                       ],
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  if (lawyer.organization != null) ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        const Icon(Icons.business_outlined,
+                            size: 12, color: AppColors.textMuted),
+                        const SizedBox(width: 3),
+                        Expanded(
+                          child: Text(lawyer.organization!,
+                              style: const TextStyle(
+                                  fontFamily: 'SFUIDisplay',
+                                  fontSize: 11, color: AppColors.textMuted),
+                              overflow: TextOverflow.ellipsis),
+                        ),
+                      ],
+                    ),
+                  ],
+                  const SizedBox(height: 10),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       lawyer.isProBono
-                          ? Text('Gratis (LBH)',
-                              style: GoogleFonts.inter(
-                                  fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.gold))
+                          ? const Text('Gratis (LBH)',
+                              style: TextStyle(
+                                  fontFamily: 'SFUIDisplay',
+                                  fontSize: 13, fontWeight: FontWeight.w700,
+                                  color: AppColors.burgundy))
                           : Text(lawyer.priceLabel ?? '',
-                              style: GoogleFonts.inter(
-                                  fontSize: 13, color: AppColors.textSecondary)),
-                      SizedBox(
-                        height: 32,
-                        child: ElevatedButton(
-                          onPressed: onTap,
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            minimumSize: Size.zero,
+                              style: const TextStyle(
+                                  fontFamily: 'SFUIDisplay',
+                                  fontSize: 13, fontWeight: FontWeight.w600,
+                                  color: AppColors.textPrimary)),
+                      GestureDetector(
+                        onTap: onTap,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 7),
+                          decoration: BoxDecoration(
+                            color: AppColors.pilihBtn,
+                            borderRadius: BorderRadius.circular(4),
                           ),
-                          child: Text('Lihat',
-                              style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600)),
+                          child: const Text('Pilih',
+                              style: TextStyle(
+                                  fontFamily: 'SFUIDisplay',
+                                  fontSize: 12, fontWeight: FontWeight.w700,
+                                  color: AppColors.white)),
                         ),
                       ),
                     ],
@@ -92,12 +132,38 @@ class _Avatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CircleAvatar(
-      radius: 24,
-      backgroundColor: AppColors.navyDeep,
+    return Container(
+      width: 108, height: 120,
+      decoration: BoxDecoration(
+        color: AppColors.blush,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      alignment: Alignment.center,
       child: Text(initials,
-          style: GoogleFonts.inter(
-              fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.white)),
+          style: const TextStyle(
+              fontFamily: 'SFUIDisplay',
+              fontSize: 20, fontWeight: FontWeight.w700, color: AppColors.burgundy)),
+    );
+  }
+}
+
+class _Badge extends StatelessWidget {
+  final String label;
+  final Color color;
+  const _Badge({required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(label,
+          style: const TextStyle(
+              fontFamily: 'SFUIDisplay',
+              fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
     );
   }
 }
@@ -106,14 +172,15 @@ class _ProBonoBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: AppColors.probonoBg,
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(6),
       ),
-      child: Text('Pro bono',
-          style: GoogleFonts.inter(
-              fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.probonoText)),
+      child: const Text('Pro bono',
+          style: TextStyle(
+              fontFamily: 'SFUIDisplay',
+              fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.probonoText)),
     );
   }
 }

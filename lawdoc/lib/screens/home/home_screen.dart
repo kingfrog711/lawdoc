@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import '../../l10n/strings.dart';
 import '../../theme/colors.dart';
-import '../../widgets/lang_toggle.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -11,219 +9,363 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.cream,
+      backgroundColor: AppColors.homeScreenBg,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 16),
-              Row(
+        child: Stack(
+          children: [
+            // Decorative blush rectangle — top-right background element
+            Positioned(
+              top: -40,
+              right: -60,
+              child: Container(
+                width: 320,
+                height: 380,
+                decoration: BoxDecoration(
+                  color: AppColors.blush,
+                  borderRadius: BorderRadius.circular(60),
+                ),
+              ),
+            ),
+
+            SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  // Logo row
+                  Row(
                     children: [
-                      Text(t('Selamat siang,', 'Good afternoon,'),
-                          style: GoogleFonts.inter(fontSize: 13, color: AppColors.textSecondary)),
-                      Text('Pak Budi',
-                          style: GoogleFonts.inter(
-                              fontSize: 20, fontWeight: FontWeight.w700,
-                              color: AppColors.textPrimary)),
+                      const Icon(Icons.balance, size: 18, color: Color(0xFF041632)),
+                      const SizedBox(width: 4),
+                      const Text(
+                        'LawDoc',
+                        style: TextStyle(
+                          fontFamily: 'AppleGaramond',
+                          fontSize: 36,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.mauve,
+                          height: 1.1,
+                        ),
+                      ),
                     ],
                   ),
-                  const Spacer(),
-                  const LangToggle(),
-                  const SizedBox(width: 10),
-                  IconButton(
-                    onPressed: () {},
-                    icon: const Icon(Icons.notifications_outlined, color: AppColors.navyDeep),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
 
-              // Tanya Dulu hero card
-              GestureDetector(
-                onTap: () => context.go('/chat'),
-                child: Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
+                  const SizedBox(height: 16),
+
+                  // Profile card
+                  const _ProfileCard(),
+
+                  const SizedBox(height: 16),
+
+                  // "Explore"
+                  const Text(
+                    'Explore',
+                    style: TextStyle(
+                      fontFamily: 'SFUIDisplay',
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.black,
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Chat / Cerita banner
+                  _BannerCard(
                     gradient: const LinearGradient(
+                      colors: [Color(0xFF4C2045), Color(0xFF63103F), Color(0xFF7A003A)],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: [Color(0xFF1E2D50), Color(0xFF0E1829)],
                     ),
-                    borderRadius: BorderRadius.circular(20),
+                    title: t(
+                      'Punya masalah hukum?\nCeritakan disini',
+                      'Got a legal issue?\nTell us here',
+                    ),
+                    subtitle: t(
+                      'AI akan bantu Anda dalam memahami situasi terkait dalam bahasa sederhana',
+                      'AI will help you understand your situation in plain language',
+                    ),
+                    ctaLabel: t('Mulai bicara →', 'Start talking →'),
+                    ctaColor: const Color(0xFF530044),
+                    onTap: () => context.go('/chat'),
                   ),
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              border: Border.all(color: AppColors.gold.withAlpha(120)),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.auto_awesome, size: 10, color: AppColors.gold),
-                                const SizedBox(width: 4),
-                                Text(t('TANYA DULU · AI', 'ASK FIRST · AI'),
-                                    style: GoogleFonts.inter(
-                                        fontSize: 9, fontWeight: FontWeight.w700,
-                                        color: AppColors.gold, letterSpacing: 0.8)),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                          t('Punya masalah hukum?\nCerita dulu, gratis.',
-                              'Got a legal issue?\nTalk first, free.'),
-                          style: GoogleFonts.playfairDisplay(
-                              fontSize: 20, fontWeight: FontWeight.w700,
-                              color: AppColors.white, height: 1.3)),
-                      const SizedBox(height: 8),
-                      Text(
-                          t('AI akan bantu pahami situasi Anda dalam bahasa sederhana.',
-                              'AI will help you understand your situation in plain language.'),
-                          style: GoogleFonts.inter(
-                              fontSize: 13, color: AppColors.textOnDarkMuted)),
-                      const SizedBox(height: 20),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: AppColors.white.withAlpha(20),
-                          border: Border.all(color: AppColors.white.withAlpha(60)),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(t('Mulai bicara', 'Start talking'),
-                                style: GoogleFonts.inter(
-                                    fontSize: 13, fontWeight: FontWeight.w600,
-                                    color: AppColors.white)),
-                            const SizedBox(width: 6),
-                            const Icon(Icons.arrow_forward, size: 14, color: AppColors.white),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
 
-              const SizedBox(height: 24),
+                  const SizedBox(height: 16),
 
-              // LBH banner
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                decoration: BoxDecoration(
-                  color: AppColors.amberCard,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.shield_outlined, size: 18, color: AppColors.gold),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(t('Bantuan hukum gratis (LBH)', 'Free legal aid (LBH)'),
-                              style: GoogleFonts.inter(
-                                  fontSize: 13, fontWeight: FontWeight.w600,
-                                  color: AppColors.textPrimary)),
-                          Text(
-                              t('Tersedia untuk Anda yang memenuhi syarat penghasilan.',
-                                  'Available if you meet the income requirements.'),
-                              style: GoogleFonts.inter(
-                                  fontSize: 11, color: AppColors.textSecondary)),
-                        ],
-                      ),
+                  // LBH banner
+                  _BannerCard(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF192342), Color(0xFF262C41), Color(0xFF686868)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
-                    GestureDetector(
-                      onTap: () => context.go('/pro-bono'),
-                      child: const Icon(Icons.chevron_right, color: AppColors.gold),
+                    title: t('Butuh bantuan lbh?', 'Need LBH assistance?'),
+                    subtitle: t(
+                      'Survey akan mencari LBH terdekat di sekitar mu dan sesuai budget',
+                      'Survey will find the nearest LBH based on your location and budget',
                     ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 24),
-
-              // Case categories
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(t('Kategori kasus', 'Case categories'),
-                      style: GoogleFonts.inter(
-                          fontSize: 16, fontWeight: FontWeight.w700,
-                          color: AppColors.textPrimary)),
-                  TextButton(
-                    onPressed: () {},
-                    child: Text(t('Lihat semua', 'See all'),
-                        style: GoogleFonts.inter(fontSize: 13, color: AppColors.gold)),
+                    ctaLabel: t('Mulai cari →', 'Start searching →'),
+                    ctaColor: AppColors.navy,
+                    onTap: () => context.go('/lawyers'),
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
-              GridView.count(
-                crossAxisCount: 2,
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                childAspectRatio: 1.6,
-                children: [
-                  _CategoryCard(icon: Icons.favorite_border, label: t('Perceraian', 'Divorce'), sub: t('Keluarga', 'Family')),
-                  _CategoryCard(icon: Icons.account_balance_wallet_outlined, label: t('Utang Piutang', 'Debts'), sub: t('Keuangan', 'Finance')),
-                  _CategoryCard(icon: Icons.location_on_outlined, label: t('Sengketa Tanah', 'Land Disputes'), sub: t('Properti', 'Property')),
-                  _CategoryCard(icon: Icons.description_outlined, label: t('Waris', 'Inheritance'), sub: t('Keluarga', 'Family')),
-                ],
-              ),
-              const SizedBox(height: 100),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _CategoryCard extends StatelessWidget {
-  final IconData icon;
-  final String label, sub;
-  const _CategoryCard({required this.icon, required this.label, required this.sub});
+// ── Profile card ──────────────────────────────────────────────────────────────
+
+class _ProfileCard extends StatelessWidget {
+  const _ProfileCard();
+
+  static const _greenChips = [
+    'Katolik',
+    'Duda',
+    'Punya bisnis',
+    'Bapak dari 2 anak',
+  ];
+  static const _redChips = [
+    'Domisili belum terverifikasi',
+    'Umur belum terverifikasi',
+  ];
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: InkWell(
-        onTap: () => context.go('/chat'),
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.profileCardBg,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(icon, size: 22, color: AppColors.gold),
-              const Spacer(),
-              Text(label,
-                  style: GoogleFonts.inter(
-                      fontSize: 14, fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary)),
-              Text(sub,
-                  style: GoogleFonts.inter(fontSize: 11, color: AppColors.textSecondary)),
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.blush,
+                  border: Border.all(color: const Color(0xFF960064), width: 1),
+                ),
+                child: const Icon(Icons.person, color: AppColors.mauve, size: 28),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      t('Selamat siang,', 'Good afternoon,'),
+                      style: TextStyle(
+                        fontFamily: 'SFUIDisplay',
+                        fontSize: 13,
+                        color: AppColors.white.withValues(alpha: 0.7),
+                      ),
+                    ),
+                    const Text(
+                      'Pak Pengguna',
+                      style: TextStyle(
+                        fontFamily: 'SFUIDisplay',
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppColors.verifiedBadgeBorder
+                            .withValues(alpha: 0.33),
+                        border: Border.all(
+                            color: AppColors.verifiedBadgeBorder),
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.verified,
+                              size: 12,
+                              color: AppColors.verifiedBadgeBorder),
+                          const SizedBox(width: 4),
+                          Text(
+                            t('Terverifikasi', 'Verified'),
+                            style: const TextStyle(
+                              fontFamily: 'SFUIDisplay',
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.verifiedBadgeBorder,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
+
+          const SizedBox(height: 14),
+
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: _greenChips
+                .map((chip) => _ProfileChip(
+                      label: chip,
+                      fillAlpha: 0.33,
+                      fillColor: const Color(0xFF96C8B2),
+                      borderColor: AppColors.profileChipGreen,
+                      textColor: AppColors.profileChipGreen,
+                    ))
+                .toList(),
+          ),
+
+          const SizedBox(height: 8),
+
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: _redChips
+                .map((chip) => _ProfileChip(
+                      label: chip,
+                      fillAlpha: 0.33,
+                      fillColor: const Color(0xFFFF474A),
+                      borderColor: AppColors.profileChipRed,
+                      textColor: AppColors.profileChipRed,
+                    ))
+                .toList(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileChip extends StatelessWidget {
+  final String label;
+  final double fillAlpha;
+  final Color fillColor, borderColor, textColor;
+
+  const _ProfileChip({
+    required this.label,
+    required this.fillAlpha,
+    required this.fillColor,
+    required this.borderColor,
+    required this.textColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        color: fillColor.withValues(alpha: fillAlpha),
+        border: Border.all(color: borderColor),
+        borderRadius: BorderRadius.circular(30),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontFamily: 'SFUIDisplay',
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: textColor,
+        ),
+      ),
+    );
+  }
+}
+
+// ── Banner card ───────────────────────────────────────────────────────────────
+
+class _BannerCard extends StatelessWidget {
+  final Gradient gradient;
+  final String title, subtitle, ctaLabel;
+  final Color ctaColor;
+  final VoidCallback onTap;
+
+  const _BannerCard({
+    required this.gradient,
+    required this.title,
+    required this.subtitle,
+    required this.ctaLabel,
+    required this.ctaColor,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        height: 188,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: gradient,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontFamily: 'SFUIDisplay',
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.white,
+                      height: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontFamily: 'SFUIDisplay',
+                      fontSize: 13,
+                      color: AppColors.white.withValues(alpha: 0.85),
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: ctaColor,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                ctaLabel,
+                style: const TextStyle(
+                  fontFamily: 'SFUIDisplay',
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.white,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

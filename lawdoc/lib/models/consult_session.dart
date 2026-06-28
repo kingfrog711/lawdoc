@@ -102,16 +102,7 @@ class ConsultSession {
   factory ConsultSession.fresh() => ConsultSession(
         sessionId: DateTime.now().millisecondsSinceEpoch.toString(),
         context: const SessionContextModel(),
-        messages: [
-          ChatMessage(
-            id: 'init',
-            isUser: false,
-            text:
-                'Halo, saya asisten LawDoc. Ceritakan masalah Anda dengan bahasa sehari-hari — '
-                'saya akan bantu pahami hak hukum Anda. Anda juga bisa lampirkan dokumen hukum untuk saya analisa.',
-            timestamp: DateTime.now(),
-          ),
-        ],
+        messages: [],
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );

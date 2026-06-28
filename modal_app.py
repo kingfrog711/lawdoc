@@ -38,8 +38,9 @@ vllm_image = (
         add_python="3.11",
     )
     .pip_install(
-        "vllm>=0.7.0",
+        "vllm>=0.9.0",          # 0.9+ required for Gemma 4 architecture support
         "huggingface_hub[hf_transfer]>=0.24.0",
+        "hf_transfer>=0.1.6",   # explicit install ensures fast HF downloads work
     )
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
 )
@@ -66,6 +67,8 @@ def serve():
         "--enable-lora",
         "--lora-modules", f"{LORA_NAME}={LORA_REPO}",
         "--max-model-len", str(MAX_MODEL_LEN),
+        "--dtype", "bfloat16",
+        "--gpu-memory-utilization", "0.88",
         "--host", "0.0.0.0",
         "--port", "8000",
     ])
